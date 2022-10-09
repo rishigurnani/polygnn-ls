@@ -2,6 +2,9 @@ import torch
 
 
 class contrast_loss(torch.nn.Module):
+    """
+    Contrastive loss, as seen in SimCLR.
+    """
     def __init__(self):
         super().__init__()
         self.mse_fn = torch.nn.MSELoss()
@@ -10,12 +13,11 @@ class contrast_loss(torch.nn.Module):
 
     def forward(self, data, **kwargs):
         """
-        A PyTorch geometric data object.
-
         Keyword args:
-            data (Data): Should have an attribute "y" with shape (N, D, 2)
+            data (pyg.data.Data): "data" should have an attribute "y" with shape (N, D, 2).
+                It should also have an attribute named "temperature".
         """
-        data.temperature = torch.max(data.temperature, self.temp_min)
+        data.temperature = torch.max(data.temperature, self.temp_min) # as seen in CLIP.
         n, d = data.y.size()[0:-1]
         # Below we interleave data.y, forming a tensor with shape (2 * N, D).
         data.y = torch.stack(
