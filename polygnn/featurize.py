@@ -35,7 +35,6 @@ def atom_helper(molecule, ind, atom_config):
     # hybridization, one-hot
     # is aromatic?
     # num. hydrogen
-    # chirality
     #############################
     return atom_feature
 
@@ -445,17 +444,10 @@ def atom_fp(atom, atom_config: AtomConfig):
     """
     Helper method used to compute per-atom feature vectors.
     Many different featurization methods compute per-atom features such as ConvMolFeaturizer, WeaveFeaturizer. This method computes such features.
-    Parameters
-    ----------
-    bool_id_feat: bool, optional
-    Return an array of unique identifiers corresponding to atom type.
-    explicit_H: bool, optional
-    If true, model hydrogens explicitly
-    use_chirality: bool, optional
-    If true, use chirality information.
+    
     Returns
     -------
-    np.ndarray of per-atom features.
+    list of per-atom features.
     """
     results = []
     if atom_config.element_type:

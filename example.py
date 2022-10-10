@@ -47,7 +47,8 @@ N_PASSES = 2  # companion paper used 10
 
 start = time.time()
 # The companion paper trains multi-task (MT) models for six groups. In this
-# example file, we will only train an MT model for electronic properties.
+# example file, we will only train an MT model for properties in the "electronic"
+# group.
 PROPERTY_GROUPS = {
     "electronic": [
         "Egc",
