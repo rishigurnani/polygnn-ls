@@ -47,9 +47,10 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             debug=False,
         )
 
+        self.temperature_param = torch.nn.Parameter(torch.ones(1))
         self.projection_head = pt.models.MlpOut(
             input_dim=32,
-            output_dim=32,
+            output_dim=self.hps.embedding_dim,
             hps=self.hps,
             debug=False,
         )
@@ -96,4 +97,6 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         x_aug = self.projection_head(x_aug)
 
         # Convert x:(N, D) and x_aug:(N, D) into (N, D, 2)
-        return torch.stack([x, x_aug], dim=2)
+        data.y = torch.stack([x, x_aug], dim=2)
+        data.temperature = self.temperature_param
+        return data
