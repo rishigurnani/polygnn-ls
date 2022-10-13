@@ -18,10 +18,10 @@ def delete_node(graph_data):
     np_edge_weight = data.edge_weight.numpy()
 
     # Select edges to remove that contained that node
-    cols_to_remove = np.invert(np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0))
+    edges_to_keep = np.invert(np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0))
 
-    np_edge_weight = np_edge_weight[:, cols_to_remove]
-    np_edge_index = np_edge_index[:, cols_to_remove]
+    np_edge_weight = np_edge_weight[:, edges_to_keep]
+    np_edge_index = np_edge_index[edges_to_keep]
 
     # Decrement index counter for all node with index greater than one deleted
     np_edge_index[np_edge_index > random_idx_to_remove] -= 1
