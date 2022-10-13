@@ -128,6 +128,7 @@ class MtConcat_PolyMpnn(pt.std_module.StandardModule):
         hps,
         normalize_embedding,
         debug,
+        readout_dim=128,
     ):
         super().__init__(hps)
 
@@ -138,7 +139,7 @@ class MtConcat_PolyMpnn(pt.std_module.StandardModule):
         self.debug = debug
 
         # set up read-out layer
-        self.readout_dim = 128
+        self.readout_dim = readout_dim
         self.R = pt.layers.my_hidden2(
             self.node_size,
             self.readout_dim,

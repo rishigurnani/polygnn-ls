@@ -444,7 +444,7 @@ def atom_fp(atom, atom_config: AtomConfig):
     """
     Helper method used to compute per-atom feature vectors.
     Many different featurization methods compute per-atom features such as ConvMolFeaturizer, WeaveFeaturizer. This method computes such features.
-    
+
     Returns
     -------
     list of per-atom features.
