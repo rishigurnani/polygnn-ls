@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch_geometric.data import Data
 
 
 def delete_node(graph_data):
@@ -14,8 +15,8 @@ def delete_node(graph_data):
     # Create new node feature array
     new_x = torch.cat([graph_data.x[0:random_idx_to_remove], graph_data.x[random_idx_to_remove+1:]])
 
-    np_edge_index = data.edge_index.numpy()
-    np_edge_weight = data.edge_weight.numpy()
+    np_edge_index = graph_data.edge_index.numpy()
+    np_edge_weight = graph_data.edge_weight.numpy()
 
     # Select edges to remove that contained that node
     edges_to_keep = np.invert(np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0))
