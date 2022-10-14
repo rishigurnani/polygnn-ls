@@ -36,30 +36,29 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             self.hps,
             normalize_embedding,
             debug,
-            self.hps.embedding_dim,
+            self.hps.embedding_dim.get_value(),
         )
         # set up linear blocks
         self.mlp_head = pt.models.MlpOut(
-            input_dim=self.hps.embedding_dim,
-            output_dim=self.hps.embedding_dim,
+            input_dim=self.hps.embedding_dim.get_value(),
+            output_dim=self.hps.embedding_dim.get_value(),
             hps=self.hps,
             debug=False,
         )
 
         self.temperature_param = torch.nn.Parameter(torch.ones(1))
         self.projection_head = pt.models.MlpOut(
-            input_dim=self.hps.embedding_dim,
-            output_dim=self.hps.embedding_dim,
+            input_dim=self.hps.embedding_dim.get_value(),
+            output_dim=self.hps.embedding_dim.get_value(),
             hps=self.hps,
             debug=False,
         )
 
-    def represent(self, data, data_augmented):
+    def represent(self, data):
         """
         The contents of this method are separated from `self.forward` so that
         this block can be called in isolation during downstream tasks.
         """
-        # Deal with data.
         x, edge_index, edge_weight, batch = (
             data.x,
             data.edge_index,
@@ -69,24 +68,13 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         x = self.mpnn(x, edge_index, edge_weight, batch)
         x = F.leaky_relu(x)
         x = self.mlp_head(x)
-
-        # Deal with data_augmented.
-        x_aug, edge_index_aug, edge_weight_aug, batch_aug = (
-            data_augmented.x,
-            data_augmented.edge_index,
-            data_augmented.edge_weight,
-            data_augmented.batch,
-        )  # extract variables
-        x_aug = self.mpnn(x_aug, edge_index_aug, edge_weight_aug, batch_aug)
-        x_aug = F.leaky_relu(x_aug)
-        x_aug = self.mlp_head(x_aug)
-        return x, x_aug
+        return x
 
     def forward(self, data, data_augmented):
         """
         This method can be called during pre-training.
         """
-        x, x_aug = self.represent(data, data_augmented)
+        x, x_aug = self.represent(data), self.represent(data_augmented)
         # Deal with data.
         x = F.leaky_relu(x)
         x = self.projection_head(x)
