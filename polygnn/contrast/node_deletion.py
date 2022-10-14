@@ -13,13 +13,17 @@ def delete_node(graph_data):
     random_idx_to_remove = np.random.randint(0, graph_data.x.size(dim=0))
 
     # Create new node feature array
-    new_x = torch.cat([graph_data.x[0:random_idx_to_remove], graph_data.x[random_idx_to_remove+1:]])
+    new_x = torch.cat(
+        [graph_data.x[0:random_idx_to_remove], graph_data.x[random_idx_to_remove + 1 :]]
+    )
 
-    np_edge_index = graph_data.edge_index.numpy()
-    np_edge_weight = graph_data.edge_weight.numpy()
+    np_edge_index = graph_data.edge_index.cpu().numpy()
+    np_edge_weight = graph_data.edge_weight.cpu().numpy()
 
     # Select edges to remove that contained that node
-    edges_to_keep = np.invert(np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0))
+    edges_to_keep = np.invert(
+        np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0)
+    )
 
     np_edge_weight = np_edge_weight[edges_to_keep]
     np_edge_index = np_edge_index[:, edges_to_keep]
