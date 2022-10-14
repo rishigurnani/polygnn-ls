@@ -1,5 +1,6 @@
 from . import (
     loss, 
     models, 
-    noise
+    noise,
+    noise_deletion
 )
