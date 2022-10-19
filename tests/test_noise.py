@@ -13,7 +13,7 @@ import time
 import argparse
 
 if os.path.exists("example_models"):
-   shutil.rmtree("example_models")
+    shutil.rmtree("example_models")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--polygnn", default=False, action="store_true")
@@ -115,7 +115,7 @@ for group in PROPERTY_GROUPS:
 
     group_train_data = train_data.loc[train_data.prop.isin(prop_cols), :]
     group_test_data = test_data.loc[test_data.prop.isin(prop_cols), :]
-    
+
     ######################
     # prepare data
     ######################
@@ -123,11 +123,11 @@ for group in PROPERTY_GROUPS:
     group_data, scaler_dict = pt.prepare.prepare_train(
         group_data, smiles_featurizer=smiles_featurizer, root_dir=root_dir
     )
-    
+
     ######################
     # Test Adding Noise
     ######################
-    result = noise.add_noise(atom_config, group_data['data'].iloc[0]['x'])
+    result = noise.add_noise(atom_config, group_data["data"].iloc[0]["x"])
     epsilon = 1e-6
     for row in result:
         assert abs(row[0:44].sum() - 1) < epsilon
@@ -141,7 +141,7 @@ for group in PROPERTY_GROUPS:
     ######################
     # Test Masking Noise
     ######################
-    data_subset = group_data['data'].iloc[0]['x'][0:3]
+    data_subset = group_data["data"].iloc[0]["x"][0:3]
     noise_mask = np.zeros(data_subset.shape)
     noise_mask[0] = np.ones(data_subset.shape[1])
     result = noise.add_noise(atom_config, data_subset, noise_mask)
