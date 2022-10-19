@@ -136,4 +136,20 @@ for group in PROPERTY_GROUPS:
         assert abs(row[64:69].sum() - 1) < epsilon
         assert row[69] <= 1
         assert row[69] >= 0
-    print("IT WORKS")
+    print("ADDING NOISE WORKS")
+
+    ######################
+    # Test Masking Noise
+    ######################
+    data_subset = group_data['data'].iloc[0]['x'][0:3]
+    noise_mask = np.zeros(data_subset.shape)
+    noise_mask[0] = np.ones(data_subset.shape[1])
+    result = noise.add_noise(atom_config, data_subset, noise_mask)
+    assert abs(result[0, 0:44].sum() - 1) < epsilon
+    assert abs(result[0, 44:55].sum() - 1) < epsilon
+    assert abs(result[0, 55:62].sum() - 1) < epsilon
+    assert abs(result[0, 64:69].sum() - 1) < epsilon
+    assert result[0, 69] <= 1
+    assert result[0, 69] >= 0
+    assert np.array_equiv(result[1:], data_subset[1:])
+    print("MASKING NOISE WORKS")
