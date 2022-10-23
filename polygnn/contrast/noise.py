@@ -3,12 +3,12 @@ import torch
 from polygnn import featurize
 
 
-def one_hot_noise(data, mask, mu=0, sigma=0.025):
-    noise = np.random.normal(mu, sigma, data.shape)
+def one_hot_noise(data, mask, mu=0, sigma=0.15):
+    scaled_sigma = sigma / data.shape[1]
+    noise = np.abs(np.random.normal(mu, scaled_sigma, data.shape))
     masked_noise = noise * mask
     aug_data = data + masked_noise
-    softmax = torch.nn.Softmax(dim=1)
-    return softmax(aug_data)
+    return np.divide(aug_data, np.expand_dims(aug_data.sum(axis=-1), axis=1))
 
 
 def boolean_noise(data, mask, mu=0, sigma=0.025):
