@@ -1,94 +1,89 @@
-import numpy as np
 import torch
+from torch.nn import functional as F
 from polygnn import featurize
+from . import utils
 
 
-def one_hot_noise(data, mask, mu=0, sigma=0.15):
-    scaled_sigma = sigma / data.shape[1]
-    noise = np.abs(np.random.normal(mu, scaled_sigma, data.shape))
-    masked_noise = noise * mask
-    aug_data = data + masked_noise
-    return np.divide(aug_data, np.expand_dims(aug_data.sum(axis=-1), axis=1))
+def one_hot_noise(data, mu=0, sigma=0.05):
+    noise_weight = torch.normal(mu, sigma, size=(1,)).abs().clip(0, 1).item()
+    noise = F.gumbel_softmax(torch.randn(*data.shape))
+    data = (1 - noise_weight) * data + noise_weight * noise
+    return data
 
 
-def boolean_noise(data, mask, mu=0, sigma=0.025):
-    noise = np.random.normal(mu, sigma, data.shape)
-    masked_noise = noise * mask
-    return np.clip(data + masked_noise, 0, 1)
+def boolean_noise(data, mask, mu=0, sigma=0.05):
+    noise = torch.normal(mu, sigma, data.shape)
+    noise = noise * mask
+    return torch.clip(data + noise, 0, 1)
 
 
 def float_noise(data, mask, mu=0, sigma=0.05):
-    noise = np.random.normal(mu, sigma, data.shape)
-    masked_noise = noise * mask
-    return data + masked_noise
+    noise = torch.normal(mu, sigma, data.shape)
+    noise = noise * mask
+    return data + noise
 
 
-def add_noise(atom_config, data, mask=[]):
+def add_noise(atom_config, data, mask=None, mask_ratio=0.1):
     """
     Adds noise across a batch of data based on features used
     :param: atom_config: Atom feature config
-    :param: data: 2D data array of batch_size by # of features
+    :param: data: 2D tensor of shape (number of nodes in batch, # of features)
     :return: The updated data with noise added
     """
     # Based on AtomConfig feature order in featurize.py
     feature_index = 0
-    if len(mask) == 0:
-        mask = np.ones(data.shape)
+    if mask == None:
+        mask = utils.bitmask(data.x.shape, mask_ratio)
     if atom_config.element_type:
-        data[
+        data.x[
             :, feature_index : feature_index + len(featurize.element_names)
         ] = one_hot_noise(
-            data[:, feature_index : feature_index + len(featurize.element_names)],
-            mask[:, feature_index : feature_index + len(featurize.element_names)],
+            data.x[:, feature_index : feature_index + len(featurize.element_names)],
         )
         feature_index += len(featurize.element_names)
     if atom_config.degree:
         degree_len = 11
-        data[:, feature_index : feature_index + degree_len] = one_hot_noise(
-            data[:, feature_index : feature_index + degree_len],
-            mask[:, feature_index : feature_index + degree_len],
+        data.x[:, feature_index : feature_index + degree_len] = one_hot_noise(
+            data.x[:, feature_index : feature_index + degree_len],
         )
         feature_index += degree_len
     if atom_config.implicit_valence:
         valence_len = 7
-        data[:, feature_index : feature_index + valence_len] = one_hot_noise(
-            data[:, feature_index : feature_index + valence_len],
-            mask[:, feature_index : feature_index + valence_len],
+        data.x[:, feature_index : feature_index + valence_len] = one_hot_noise(
+            data.x[:, feature_index : feature_index + valence_len],
         )
         feature_index += valence_len
     if atom_config.formal_charge:
         charge_len = 1
-        data[:, feature_index : feature_index + charge_len] = float_noise(
-            data[:, feature_index : feature_index + charge_len],
+        data.x[:, feature_index : feature_index + charge_len] = float_noise(
+            data.x[:, feature_index : feature_index + charge_len],
             mask[:, feature_index : feature_index + charge_len],
         )
         feature_index += charge_len
     if atom_config.num_rad_e:
         rad_len = 1
-        data[:, feature_index : feature_index + rad_len] = float_noise(
-            data[:, feature_index : feature_index + rad_len],
+        data.x[:, feature_index : feature_index + rad_len] = float_noise(
+            data.x[:, feature_index : feature_index + rad_len],
             mask[:, feature_index : feature_index + rad_len],
         )
         feature_index += rad_len
     if atom_config.hybridization:
         if not atom_config.combo_hybrid:
             hybrid_len = 5
-            data[:, feature_index : feature_index + hybrid_len] = one_hot_noise(
-                data[:, feature_index : feature_index + hybrid_len],
-                mask[:, feature_index : feature_index + hybrid_len],
+            data.x[:, feature_index : feature_index + hybrid_len] = one_hot_noise(
+                data.x[:, feature_index : feature_index + hybrid_len],
             )
             feature_index += hybrid_len
         else:
             combo_hybrid_len = 4
-            data[:, feature_index : feature_index + combo_hybrid_len] = one_hot_noise(
-                data[:, feature_index : feature_index + combo_hybrid_len],
-                mask[:, feature_index : feature_index + combo_hybrid_len],
+            data.x[:, feature_index : feature_index + combo_hybrid_len] = one_hot_noise(
+                data.x[:, feature_index : feature_index + combo_hybrid_len],
             )
             feature_index += combo_hybrid_len
     if atom_config.aromatic:
         aromatic_len = 1
-        data[:, feature_index : feature_index + aromatic_len] = boolean_noise(
-            data[:, feature_index : feature_index + aromatic_len],
+        data.x[:, feature_index : feature_index + aromatic_len] = boolean_noise(
+            data.x[:, feature_index : feature_index + aromatic_len],
             mask[:, feature_index : feature_index + aromatic_len],
         )
         feature_index += aromatic_len

@@ -1,3 +1,6 @@
+# This file has been converted to a .txt file because it's .py version
+# causes "poetry run pytest" to fail.
+
 import pandas as pd
 
 pd.options.mode.chained_assignment = None

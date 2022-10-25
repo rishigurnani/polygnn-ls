@@ -67,3 +67,28 @@ def test_constrast_loss():
         data.y = tens
         result = loss_fn(data).item()
     assert np.isclose(result, correct_loss)
+
+
+def test_noise_augmentation():
+    torch.manual_seed(12)
+    train_smiles = ["[*]CCC[*]"]
+    bond_config = feat.BondConfig(True, False, True)
+    atom_config = feat.AtomConfig(
+        True,
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+        True,
+    )
+    train_X = [
+        feat.get_minimum_graph_tensor(x, bond_config, atom_config, "monocycle")
+        for x in train_smiles
+    ]
+    loader = DataLoader(train_X, batch_size=len(train_X))
+    for data in loader:
+        data_aug = cst.noise.add_noise(atom_config, data)
+        # KENNY and/or SHUBHAM, add tests here.
+        print("data_aug.x\n", data_aug.x)
