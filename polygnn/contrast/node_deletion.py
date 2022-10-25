@@ -20,7 +20,10 @@ def delete_node(batch_graph_data):
 
         # Create new node feature array
         new_x = torch.cat(
-            [graph_data.x[0:random_idx_to_remove], graph_data.x[random_idx_to_remove + 1 :]]
+            [
+                graph_data.x[0:random_idx_to_remove],
+                graph_data.x[random_idx_to_remove + 1 :],
+            ]
         )
 
         np_edge_index = graph_data.edge_index.cpu().numpy()

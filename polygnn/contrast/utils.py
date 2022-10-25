@@ -1,5 +1,6 @@
 import torch
 
+
 def bitmask(shape, mask_ratio):
     """
     Return a bit mask.

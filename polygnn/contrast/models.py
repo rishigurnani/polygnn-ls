@@ -59,7 +59,7 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             data.x,
             data.edge_index,
             data.edge_weight,
-            data.batch
+            data.batch,
         )  # extract variables
         x = self.mpnn(x, edge_index, edge_weight, batch)
 
@@ -67,7 +67,7 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             data_augmented.x,
             data_augmented.edge_index,
             data_augmented.edge_weight,
-            data_augmented.batch
+            data_augmented.batch,
         )  # extract variables
         x_aug = self.mpnn(x_aug, edge_index_aug, edge_weight_aug, batch_aug)
 

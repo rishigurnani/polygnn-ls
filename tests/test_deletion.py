@@ -8,6 +8,8 @@ import numpy as np
 """
 Basic unit test for removing node from graph
 """
+
+
 def test_node_deletion():
     train_smiles = ["[*]CC[*]", "[*]CC[*]", "[*]CC(C)[*]", "[*]CC(C)[*]"]  # 2N
     # ###################################################################################
