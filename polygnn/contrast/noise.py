@@ -23,7 +23,7 @@ def float_noise(data, mask, mu=0, sigma=0.05):
     return data + noise
 
 
-def add_noise(atom_config, data, mask=None, mask_ratio=0.1):
+def add_noise(atom_config, data, mask=[], mask_ratio=0.1):
     """
     Adds noise across a batch of data based on features used
     :param: atom_config: Atom feature config
@@ -32,7 +32,7 @@ def add_noise(atom_config, data, mask=None, mask_ratio=0.1):
     """
     # Based on AtomConfig feature order in featurize.py
     feature_index = 0
-    if mask == None:
+    if len(mask) == 0:
         mask = utils.bitmask(data.x.shape, mask_ratio)
     if atom_config.element_type:
         data.x[
