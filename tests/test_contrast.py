@@ -67,3 +67,53 @@ def test_constrast_loss():
         data.y = tens
         result = loss_fn(data).item()
     assert np.isclose(result, correct_loss)
+
+
+def test_noise_augmentation():
+    torch.manual_seed(12)
+    train_smiles = ["[*]CCC[*]", "[*]CCC[*]"]
+    bond_config = feat.BondConfig(True, False, True)
+    atom_config = feat.AtomConfig(
+        True,
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+        True,
+    )
+    train_X = [
+        feat.get_minimum_graph_tensor(x, bond_config, atom_config, "monocycle")
+        for x in train_smiles
+    ]
+    loader = DataLoader(train_X, batch_size=len(train_X))
+    for data in loader:
+        data_aug = cst.noise.add_noise(atom_config, data)
+        # KENNY and/or SHUBHAM, add tests here.
+        epsilon = 1e-6
+        for row in data_aug.x:
+            assert abs(row[0:44].sum() - 1) < epsilon
+            assert abs(row[44:55].sum() - 1) < epsilon
+            assert abs(row[55:62].sum() - 1) < epsilon
+            assert abs(row[64:69].sum() - 1) < epsilon
+            assert row[69] <= 1
+            assert row[69] >= 0
+        print("ADDING NOISE WORKS")
+
+        ######################
+        # Test Masking Noise
+        ######################
+        noise_mask = np.zeros(data.x.shape)
+        noise_mask[0] = np.ones(data.x.shape[1])
+        data_aug = cst.noise.add_noise(atom_config, data, noise_mask)
+        assert abs(data_aug.x[0, 0:44].sum() - 1) < epsilon
+        assert abs(data_aug.x[0, 44:55].sum() - 1) < epsilon
+        assert abs(data_aug.x[0, 55:62].sum() - 1) < epsilon
+        assert abs(data_aug.x[0, 64:69].sum() - 1) < epsilon
+        assert data_aug.x[0, 69] <= 1
+        assert data_aug.x[0, 69] >= 0
+        assert np.array_equiv(data_aug.x[1:], data.x[1:])
+        print("MASKING NOISE WORKS")
+
+test_noise_augmentation()
