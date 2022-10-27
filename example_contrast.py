@@ -54,4 +54,5 @@ cfg = pt.train.trainConfig(
 )
 cfg.epochs = 5
 # Train.
-cst.train.train(model, train_pts, cfg, [cst.node_deletion.delete_node])
+add_noise = lambda x: cst.noise.add_noise(atom_config, x)
+cst.train.train(model, train_pts, cfg, [add_noise])
