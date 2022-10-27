@@ -1,4 +1,4 @@
-from torch import optim
+from torch import optim, nn
 from torch.cuda import amp
 from polygnn_trainer.utils import analyze_gradients
 from polygnn_trainer.train import initialize_training, minibatch
@@ -34,6 +34,7 @@ def amp_train(model, view1, view2, optimizer, tc, selector_dim):
         output = model(view1, view2)
         loss = tc.loss_obj(output)
         loss.backward()
+        # nn.utils.clip_grad_value_(model.temperature_param, 0.1)
         optimizer.step()
 
     return output, loss.item()
