@@ -30,7 +30,7 @@ hps.set_values(
     {
         "capacity": 2,
         "batch_size": 10,
-        "r_learn": 0.01,
+        "r_learn": 0.003,
         "dropout_pct": 0.0,
         "activation": F.leaky_relu,
         "embedding_dim": 256,
@@ -52,7 +52,7 @@ cfg = pt.train.trainConfig(
     hps=hps,
     model_save_path=None,  # change if you want the model to save.
 )
-cfg.epochs = 5
+cfg.epochs = 100
 # Train.
 add_noise = lambda x: cst.noise.add_noise(atom_config, x)
 cst.train.train(model, train_pts, cfg, [add_noise])
