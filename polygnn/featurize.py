@@ -261,7 +261,9 @@ class BondConfig:
 class AtomConfig:
     """
     A class to configure which features should be included
-    in the atom fingerprint
+    in the atom fingerprint. For example, if `element_type`
+    is False, then the element type will not get computed
+    in `atom_fp`.
     """
 
     element_type: bool
