@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import random
 import numpy as np
 import polygnn_trainer as pt
-
+from copy import deepcopy
 import polygnn.layers as layers
 
 random.seed(2)
@@ -38,20 +38,34 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             debug,
             self.hps.embedding_dim.get_value(),
         )
-        # set up linear blocks
-        self.mlp_head = pt.models.MlpOut(
+        # self.temperature_param = torch.nn.Parameter(torch.ones(1))
+        self.temp_min = 0.01  # temperature minimum
+        # We need to decrement the capacity of the MLP layers by 1 since
+        # the output layer counts as 1 toward the capacity.
+        self.mlp_hps = deepcopy(self.hps)
+        self.mlp_hps.set_values({"capacity": self.mlp_hps.capacity.get_value() - 1})
+
+        # Set up Mlp for representation.
+        self.mlp_head = pt.layers.Mlp(
             input_dim=self.hps.embedding_dim.get_value(),
             output_dim=self.hps.embedding_dim.get_value(),
-            hps=self.hps,
+            hps=self.mlp_hps,
             debug=False,
         )
-
-        self.temperature_param = torch.nn.Parameter(torch.ones(1))
-        self.projection_head = pt.models.MlpOut(
+        self.mlp_out = pt.layers.my_output(
+            self.mlp_hps.embedding_dim.get_value(),
+            self.mlp_hps.embedding_dim.get_value(),
+        )
+        # Set up Mlp for projection.
+        self.projection_head = pt.layers.Mlp(
             input_dim=self.hps.embedding_dim.get_value(),
             output_dim=self.hps.embedding_dim.get_value(),
-            hps=self.hps,
+            hps=self.mlp_hps,
             debug=False,
+        )
+        self.projection_out = pt.layers.my_output(
+            self.mlp_hps.embedding_dim.get_value(),
+            self.mlp_hps.embedding_dim.get_value(),
         )
 
     def represent(self, data):
@@ -59,15 +73,15 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         The contents of this method are separated from `self.forward` so that
         this block can be called in isolation during downstream tasks.
         """
-        x, edge_index, edge_weight, batch = (
-            data.x,
-            data.edge_index,
-            data.edge_weight,
-            data.batch,
-        )  # extract variables
-        x = self.mpnn(x, edge_index, edge_weight, batch)
+        x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
         x = F.leaky_relu(x)
         x = self.mlp_head(x)
+        x = self.mlp_out(x)
+        return x
+
+    def project(self, x):
+        x = self.projection_head(x)
+        x = self.projection_out(x)
         return x
 
     def forward(self, data, data_augmented):
@@ -77,13 +91,14 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         x, x_aug = self.represent(data), self.represent(data_augmented)
         # Deal with data.
         x = F.leaky_relu(x)
-        x = self.projection_head(x)
+        x = self.project(x)
 
         # Deal with data_augmented.
         x_aug = F.leaky_relu(x_aug)
-        x_aug = self.projection_head(x_aug)
+        x_aug = self.project(x_aug)
 
+        # data.temperature = self.temperature_param.clip(min=0.01, max=2)  # as seen in CLIP.
+        data.temperature = torch.tensor([0.1], requires_grad=False).to(x.device)
         # Convert x:(N, D) and x_aug:(N, D) into (N, D, 2)
         data.y = torch.stack([x, x_aug], dim=2)
-        data.temperature = self.temperature_param
         return data

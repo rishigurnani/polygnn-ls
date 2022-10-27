@@ -3,4 +3,6 @@ from . import (
     models,
     noise,
     utils,
+    train,
+    node_deletion,
 )
