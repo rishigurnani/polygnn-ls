@@ -39,7 +39,7 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
             self.hps.embedding_dim.get_value(),
         )
         self.temperature_param = torch.nn.Parameter(torch.ones(1))
-
+        self.temp_min = 0.01  # temperature minimum
         # We need to decrement the capacity of the MLP layers by 1 since
         # the output layer counts as 1 toward the capacity.
         self.mlp_hps = deepcopy(self.hps)
@@ -98,6 +98,7 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         x_aug = self.project(x_aug)
 
         data.temperature = self.temperature_param
+        data.temperature = data.temperature.clip(min=0.01)  # as seen in CLIP.
         # Convert x:(N, D) and x_aug:(N, D) into (N, D, 2)
         data.y = torch.stack([x, x_aug], dim=2)
         return data

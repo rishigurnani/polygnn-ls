@@ -9,7 +9,6 @@ class contrast_loss(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.mse_fn = torch.nn.MSELoss()
-        self.temp_min = torch.tensor(0.01)  # temperature minimum
         self.cos = torch.nn.CosineSimilarity()
 
     def forward(self, data, **kwargs):
@@ -18,9 +17,6 @@ class contrast_loss(torch.nn.Module):
             data (pyg.data.Data): "data" should have an attribute "y" with shape (N, D, 2).
                 It should also have an attribute named "temperature".
         """
-        data.temperature = torch.max(
-            data.temperature, self.temp_min
-        )  # as seen in CLIP.
         n, d = data.y.size()[0:-1]
         # Below we interleave data.y, forming a tensor with shape (2 * N, D).
         data.y = torch.stack((data.y[:, :, 0], data.y[:, :, 1]), dim=1).view(2 * n, d)
