@@ -129,9 +129,6 @@ def train(
             del data  # save space
             for fn in transforms[1:]:
                 view1, view2 = fn(view1), fn(view2)
-            # TODO: In an ideal world, we should not have to send view1/2
-            # to the GPU here.
-            view1, view2 = view1.to(cfg.device), view2.to(cfg.device)
             optimizer.zero_grad()
             _, loss_item = amp_train(
                 model, view1, view2, optimizer, cfg, selector_dim=None
@@ -149,9 +146,6 @@ def train(
             del data  # save space
             for fn in transforms[1:]:
                 view1, view2 = fn(view1), fn(view2)
-            # TODO: In an ideal world, we should not have to send view1/2
-            # to the GPU here.
-            view1, view2 = view1.to(cfg.device), view2.to(cfg.device)
             output = model(view1, view2)
             loss_item = cfg.loss_obj(output).item()
             epoch_val_loss += loss_item
