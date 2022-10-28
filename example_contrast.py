@@ -3,6 +3,13 @@ from polygnn import contrast as cst
 import polygnn_trainer as pt
 import torch.nn.functional as F
 import pandas as pd
+import random, torch
+import numpy as np
+
+# fix random seeds
+random.seed(2)
+torch.manual_seed(2)
+np.random.seed(2)
 
 # Make pyg.Data objects from sample_data
 bond_config = feat.BondConfig(True, False, True)
@@ -16,12 +23,25 @@ atom_config = feat.AtomConfig(
     False,
     True,
 )
+# Load raw data
 data = pd.read_csv("sample_data/sample.csv")["smiles_string"].unique().tolist()
 print(f"There are {len(data)} unique SMILES strings.")
-train_pts = [
+# Turn raw data into graphs
+all_data = [
     feat.get_minimum_graph_tensor(x, bond_config, atom_config, "monocycle")
     for x in data
 ]
+
+# Split graph data into training and validation sets.
+train_pts = []  # training data points
+val_pts = []  # validation data points
+for point in all_data:
+    if random.uniform(0, 1) <= 0.8:
+        train_pts.append(point)
+    else:
+        val_pts.append(point)
+del all_data  # save space
+
 # Initialize the hyperparameters.
 hps = pt.hyperparameters.HpConfig()
 embedding_dim = pt.hyperparameters.ModelParameter(int)
@@ -52,7 +72,8 @@ cfg = pt.train.trainConfig(
     hps=hps,
     model_save_path=None,  # change if you want the model to save.
 )
-cfg.epochs = 100
+cfg.epochs = 10
+cfg.break_on_bad_grads = False
 # Train.
 add_noise = lambda x: cst.noise.add_noise(atom_config, x)
-cst.train.train(model, train_pts, cfg, [add_noise])
+cst.train.train(model, train_pts, val_pts, cfg, [add_noise])

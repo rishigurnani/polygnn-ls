@@ -43,7 +43,7 @@ def amp_train(model, view1, view2, optimizer, tc, selector_dim):
 def train(
     model,
     train_pts,
-    # val_pts,
+    val_pts,
     cfg,
     transforms,
 ):
@@ -70,12 +70,13 @@ def train(
         model.parameters(), lr=cfg.hps.r_learn.value
     )  # Adam optimization
 
-    # val_loader = DataLoader(
-    #     val_pts, batch_size=cfg.hps.batch_size.value * 2, shuffle=True
-    # )
+    val_loader = DataLoader(
+        val_pts, batch_size=cfg.hps.batch_size.value * 2, shuffle=True
+    )
 
     # intialize a few variables that get reset during the training loop
     min_tr_loss = np.inf  # epoch-wise loss
+    min_val_loss = np.inf  # epoch-wise loss
     best_val_epoch = 0
     vanishing_grads = False
     exploding_grads = False
@@ -97,7 +98,11 @@ def train(
             print("Vanishing gradients detected")
         if exploding_grads:
             print("Exploding gradients detected")
-        if (vanishing_grads or exploding_grads) and (epoch < 50):
+        if (
+            (vanishing_grads or exploding_grads)
+            and (epoch < 50)
+            and (cfg.break_on_bad_grads)
+        ):
             break
         # if the errors or gradients are messed up later in training,
         # let us just re-initialize
@@ -114,11 +119,11 @@ def train(
                 train_pts, batch_size=cfg.hps.batch_size.value, shuffle=True
             )
         # ################################################################
-        # train loop
+        # Loop through training batches and compute the training loss
         # ################################################################
         model.train()
-        epoch_loss = 0
-        for ind, data in enumerate(train_loader):  # loop through training batches
+        epoch_tr_loss = 0
+        for ind, data in enumerate(train_loader):
             data = data.to(cfg.device)
             view1, view2 = transforms[0](data), transforms[0](data)
             del data  # save space
@@ -131,8 +136,29 @@ def train(
             _, loss_item = amp_train(
                 model, view1, view2, optimizer, cfg, selector_dim=None
             )
-            epoch_loss += loss_item
-        epoch_loss = epoch_loss / (ind + 1)
+            epoch_tr_loss += loss_item
+        epoch_tr_loss = epoch_tr_loss / (ind + 1)
+        # ################################################################
+        # Loop through validation batches and compute the validation loss
+        # ################################################################
+        model.eval()
+        epoch_val_loss = 0
+        for ind, data in enumerate(val_loader):
+            data = data.to(cfg.device)
+            view1, view2 = transforms[0](data), transforms[0](data)
+            del data  # save space
+            for fn in transforms[1:]:
+                view1, view2 = fn(view1), fn(view2)
+            # TODO: In an ideal world, we should not have to send view1/2
+            # to the GPU here.
+            view1, view2 = view1.to(cfg.device), view2.to(cfg.device)
+            output = model(view1, view2)
+            loss_item = cfg.loss_obj(output).item()
+            epoch_val_loss += loss_item
+        epoch_val_loss = epoch_val_loss / (ind + 1)
+        # ################################################################
+        # Compute and print the gradient statistics
+        # ################################################################
         _, ave_grads, _ = analyze_gradients(
             model.named_parameters(), allow_errors=False
         )
@@ -146,19 +172,26 @@ def train(
         else:
             exploding_grads = False
         # ################################################################
+        # Print the epoch summary
+        # ################################################################
         print(f"\nEpoch {epoch}{epoch_suffix}", flush=True)
-        print(f"[avg. train loss] {epoch_loss}", flush=True)
+        print(
+            f"[avg. train loss] {epoch_tr_loss} [avg. val loss] {epoch_val_loss}",
+            flush=True,
+        )
 
-        if epoch_loss < min_tr_loss:
-            min_tr_loss = epoch_loss
+        # Checkpoint model, if necessary.
+        if epoch_val_loss < min_val_loss:
+            min_tr_loss = epoch_tr_loss
+            min_val_loss = epoch_val_loss
             best_val_epoch = epoch
             if cfg.model_save_path:
                 torch_save(model.state_dict(), cfg.model_save_path)
                 print("Best model saved according to training loss.", flush=True)
 
         print(
-            f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss}",
+            f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
             flush=True,
         )
-
+        # ################################################################
     return min_tr_loss
