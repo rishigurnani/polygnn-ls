@@ -6,10 +6,11 @@ class contrast_loss(torch.nn.Module):
     Contrastive loss, as seen in SimCLR.
     """
 
-    def __init__(self):
+    def __init__(self, temperature):
         super().__init__()
         self.mse_fn = torch.nn.MSELoss()
         self.cos = torch.nn.CosineSimilarity()
+        self.temperature = torch.tensor([temperature], requires_grad=False).squeeze()
 
     def forward(self, data, **kwargs):
         """
@@ -17,6 +18,7 @@ class contrast_loss(torch.nn.Module):
             data (pyg.data.Data): "data" should have an attribute "y" with shape (N, D, 2).
                 It should also have an attribute named "temperature".
         """
+        temperature = self.temperature.to(data.y.device)
         n, d = data.y.size()[0:-1]
         # Below we interleave data.y, forming a tensor with shape (2 * N, D).
         data.y = torch.stack((data.y[:, :, 0], data.y[:, :, 1]), dim=1).view(2 * n, d)
@@ -26,7 +28,7 @@ class contrast_loss(torch.nn.Module):
         indicator = (
             torch.ones(result.size()).fill_diagonal_(0).to(data.y.device)
         )  # (2N, 2N)
-        result = torch.exp(result / data.temperature)
+        result = torch.exp(result / temperature)
         result = -1 * (  # loss for each term, (2N, 2N)
             torch.log10(result / torch.sum(indicator * result))
         )

@@ -11,7 +11,9 @@ random.seed(2)
 torch.manual_seed(2)
 np.random.seed(2)
 
-# Make pyg.Data objects from sample_data
+# ###########
+# Constants.
+# ###########
 bond_config = feat.BondConfig(True, False, True)
 atom_config = feat.AtomConfig(
     True,
@@ -23,8 +25,11 @@ atom_config = feat.AtomConfig(
     False,
     True,
 )
+raw_data_path = "sample_data/sample.csv"
+# ###########
+
 # Load raw data
-data = pd.read_csv("sample_data/sample.csv")["smiles_string"].unique().tolist()
+data = pd.read_csv(raw_data_path)["smiles_string"].unique().tolist()
 print(f"There are {len(data)} unique SMILES strings.")
 # Turn raw data into graphs
 all_data = [
@@ -46,6 +51,8 @@ del all_data  # save space
 hps = pt.hyperparameters.HpConfig()
 embedding_dim = pt.hyperparameters.ModelParameter(int)
 setattr(hps, "embedding_dim", embedding_dim)
+temperature = pt.hyperparameters.Parameter(float)
+setattr(hps, "temperature", temperature)
 hps.set_values(
     {
         "capacity": 2,
@@ -54,6 +61,7 @@ hps.set_values(
         "dropout_pct": 0.0,
         "activation": F.leaky_relu,
         "embedding_dim": 256,
+        "temperature": 0.1,
     }
 )
 
@@ -67,7 +75,7 @@ model = cst.models.preTrainContrastivePolyGNN(
 )
 # Initialize a trainConfig object.
 cfg = pt.train.trainConfig(
-    cst.loss.contrast_loss(),
+    cst.loss.contrast_loss(hps.temperature.get_value()),
     amp=False,
     hps=hps,
     model_save_path=None,  # change if you want the model to save.
