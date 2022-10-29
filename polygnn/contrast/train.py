@@ -9,7 +9,7 @@ from torch_geometric.loader import DataLoader
 from collections import deque
 
 
-def amp_train(model, view1, view2, optimizer, tc, selector_dim):
+def amp_train(model, view1, view2, optimizer, tc):
     """
     This function handles the parts of the per-epoch loop that torch's
     autocast methods can speed up. See https://pytorch.org/docs/1.9.1/notes/amp_examples.html
@@ -130,9 +130,7 @@ def train(
             for fn in transforms[1:]:
                 view1, view2 = fn(view1), fn(view2)
             optimizer.zero_grad()
-            _, loss_item = amp_train(
-                model, view1, view2, optimizer, cfg, selector_dim=None
-            )
+            _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
             epoch_tr_loss += loss_item
         epoch_tr_loss = epoch_tr_loss / (ind + 1)
         # ################################################################
