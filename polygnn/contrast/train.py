@@ -72,7 +72,11 @@ def train(
     )  # Adam optimization
 
     val_loader = DataLoader(
-        val_pts, batch_size=cfg.hps.batch_size.value * 2, shuffle=True, pin_memory=True, num_workers=10,
+        val_pts,
+        batch_size=cfg.hps.batch_size.value * 2,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=10,
     )
 
     # intialize a few variables that get reset during the training loop
@@ -89,7 +93,11 @@ def train(
     # let us make the dataloader now.
     if not cfg.get_train_dataloader:
         train_loader = DataLoader(
-            train_pts, batch_size=cfg.hps.batch_size.value, shuffle=True, pin_memory=True, num_workers=10,
+            train_pts,
+            batch_size=cfg.hps.batch_size.value,
+            shuffle=True,
+            pin_memory=True,
+            num_workers=10,
         )
     for epoch in range(cfg.epochs):
         # Let's stop training and not waste time if we have vanishing
@@ -189,4 +197,3 @@ def train(
             )
             # ################################################################
     return min_tr_loss
-

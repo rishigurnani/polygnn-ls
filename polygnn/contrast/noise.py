@@ -5,7 +5,9 @@ from . import utils
 
 
 def one_hot_noise(data, mu=0, sigma=0.05):
-    noise_weight = torch.normal(mu, sigma, size=(1,), device=data.device).abs().clip(0, 1)
+    noise_weight = (
+        torch.normal(mu, sigma, size=(1,), device=data.device).abs().clip(0, 1)
+    )
     noise = F.gumbel_softmax(torch.randn(*data.shape, device=data.device))
     data = (1 - noise_weight) * data + noise_weight * noise
     return data

@@ -17,6 +17,7 @@ np.random.seed(2)
 # forward method will end with a "my_output" layer or 2) the model will be
 # an ensemble. If not, the object is a layer.
 
+
 class PseudoDC(StandardMpModule):  # Pseudo DeepChem layer
     def __init__(self, node_size, E, hps, debug=False):
         super().__init__(hps, aggr="add", node_dim=0)
@@ -74,6 +75,7 @@ class PseudoDC(StandardMpModule):  # Pseudo DeepChem layer
         # overwrite edge_weight to save memory.
         edge_weight = self.E(edge_weight)
         return torch.cat((x_j, edge_weight), 1)
+
 
 class SharedPseudoDC(StandardMpModule):  # Pseudo DeepChem layer
     def __init__(self, V, U, E, hps, debug=False):
@@ -195,4 +197,3 @@ class MtConcat_PolyMpnn(pt.std_module.StandardModule):
         else:
             x = scatter_sum(x, batch, dim=0)
         return x
-
