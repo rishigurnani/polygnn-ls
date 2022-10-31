@@ -136,15 +136,16 @@ def train(
         epoch_tr_loss = 0
         for ind, data in enumerate(train_loader):
             data = data.to(cfg.device)
-            view1, view2 = transforms[0](data), transforms[0](data)
-            del data  # save space
-            for fn in transforms[1:]:
-                view1, view2 = fn(view1), fn(view2)
+            with torch.no_grad():
+                view1, view2 = transforms[0](data.clone()), transforms[0](data.clone())
+                del data  # save space
+                for fn in transforms[1:]:
+                    view1, view2 = fn(view1), fn(view2)
             optimizer.zero_grad(set_to_none=True)
             _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
             epoch_tr_loss += loss_item
         with torch.no_grad():
-            epoch_tr_loss = epoch_tr_loss / (ind + 1)
+            epoch_tr_loss = epoch_tr_loss / len(train_pts)
             # ################################################################
             # Loop through validation batches and compute the validation loss
             # ################################################################
@@ -152,14 +153,14 @@ def train(
             epoch_val_loss = 0
             for ind, data in enumerate(val_loader):
                 data = data.to(cfg.device)
-                view1, view2 = transforms[0](data), transforms[0](data)
+                view1, view2 = transforms[0](data.clone()), transforms[0](data.clone())
                 del data  # save space
                 for fn in transforms[1:]:
                     view1, view2 = fn(view1), fn(view2)
                 output = model(view1, view2)
                 loss_item = cfg.loss_obj(output).item()
                 epoch_val_loss += loss_item
-            epoch_val_loss = epoch_val_loss / (ind + 1)
+            epoch_val_loss = epoch_val_loss / len(val_pts)
             # ################################################################
             # Compute and print the gradient statistics
             # ################################################################
@@ -199,3 +200,4 @@ def train(
             )
             # ################################################################
     return min_tr_loss
+
