@@ -125,7 +125,9 @@ def train(
         if cfg.get_train_dataloader:
             train_pts = cfg.get_train_dataloader()
             train_loader = DataLoader(
-                train_pts, batch_size=cfg.hps.batch_size.value, shuffle=True
+                train_pts,
+                batch_size=cfg.hps.batch_size.value,
+                shuffle=True,
             )
         # ################################################################
         # Loop through training batches and compute the training loss
