@@ -97,5 +97,5 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
 
         # Interleave x:(N, D) and x_aug:(N, D) into a new tensor, data.y:(2*N, D)
         n, d = x.size()
-        data.y = torch.stack((data.y[:, :, 0], data.y[:, :, 1]), dim=1).view(2 * n, d)
+        data.y = torch.stack((x, x_aug), dim=1).view(2 * n, d)
         return data
