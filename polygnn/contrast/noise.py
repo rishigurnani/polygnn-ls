@@ -5,20 +5,20 @@ from . import utils
 
 
 def one_hot_noise(data, mu=0, sigma=0.05):
-    noise_weight = torch.normal(mu, sigma, size=(1,)).abs().clip(0, 1).to(data.device)
-    noise = F.gumbel_softmax(torch.randn(*data.shape)).to(data.device)
+    noise_weight = torch.normal(mu, sigma, size=(1,), device=data.device).abs().clip(0, 1)
+    noise = F.gumbel_softmax(torch.randn(*data.shape, device=data.device))
     data = (1 - noise_weight) * data + noise_weight * noise
     return data
 
 
 def boolean_noise(data, mask, mu=0, sigma=0.05):
-    noise = torch.normal(mu, sigma, data.shape).to(data.device)
+    noise = torch.normal(mu, sigma, data.shape, device=data.device)
     noise = noise * mask
     return torch.clip(data + noise, 0, 1)
 
 
 def float_noise(data, mask, mu=0, sigma=0.05):
-    noise = torch.normal(mu, sigma, data.shape).to(data.device)
+    noise = torch.normal(mu, sigma, data.shape, device=data.device)
     noise = noise * mask
     return data + noise
 
@@ -33,7 +33,7 @@ def add_noise(atom_config, data, mask=[], mask_ratio=0.1):
     # Based on AtomConfig feature order in featurize.py
     feature_index = 0
     if len(mask) == 0:
-        mask = utils.bitmask(data.x.shape, mask_ratio).to(data.x.device)
+        mask = utils.bitmask(data.x.shape, mask_ratio, device=data.x.device)
     if atom_config.element_type:
         data.x[
             :, feature_index : feature_index + len(featurize.element_names)
