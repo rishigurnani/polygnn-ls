@@ -1,7 +1,8 @@
-from torch import optim, nn
+import torch
+from torch import optim
 from torch.cuda import amp
 from polygnn_trainer.utils import analyze_gradients
-from polygnn_trainer.train import initialize_training, minibatch
+from polygnn_trainer.train import initialize_training
 from polygnn_trainer import constants
 from torch import save as torch_save
 import numpy as np
@@ -71,7 +72,7 @@ def train(
     )  # Adam optimization
 
     val_loader = DataLoader(
-        val_pts, batch_size=cfg.hps.batch_size.value * 2, shuffle=True
+        val_pts, batch_size=cfg.hps.batch_size.value * 2, shuffle=True, pin_memory=True, num_workers=10,
     )
 
     # intialize a few variables that get reset during the training loop
@@ -88,7 +89,7 @@ def train(
     # let us make the dataloader now.
     if not cfg.get_train_dataloader:
         train_loader = DataLoader(
-            train_pts, batch_size=cfg.hps.batch_size.value, shuffle=True
+            train_pts, batch_size=cfg.hps.batch_size.value, shuffle=True, pin_memory=True, num_workers=10,
         )
     for epoch in range(cfg.epochs):
         # Let's stop training and not waste time if we have vanishing
@@ -129,61 +130,63 @@ def train(
             del data  # save space
             for fn in transforms[1:]:
                 view1, view2 = fn(view1), fn(view2)
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
             epoch_tr_loss += loss_item
-        epoch_tr_loss = epoch_tr_loss / (ind + 1)
-        # ################################################################
-        # Loop through validation batches and compute the validation loss
-        # ################################################################
-        model.eval()
-        epoch_val_loss = 0
-        for ind, data in enumerate(val_loader):
-            data = data.to(cfg.device)
-            view1, view2 = transforms[0](data), transforms[0](data)
-            del data  # save space
-            for fn in transforms[1:]:
-                view1, view2 = fn(view1), fn(view2)
-            output = model(view1, view2)
-            loss_item = cfg.loss_obj(output).item()
-            epoch_val_loss += loss_item
-        epoch_val_loss = epoch_val_loss / (ind + 1)
-        # ################################################################
-        # Compute and print the gradient statistics
-        # ################################################################
-        _, ave_grads, _ = analyze_gradients(
-            model.named_parameters(), allow_errors=False
-        )
-        grad_hist_per_epoch.append(ave_grads)
-        if np.sum(grad_hist_per_epoch) == 0:
-            vanishing_grads = True
-        else:
-            vanishing_grads = False
-        if int(np.sum(np.isnan(grad_hist_per_epoch))) == len(grad_hist_per_epoch):
-            exploding_grads = True
-        else:
-            exploding_grads = False
-        # ################################################################
-        # Print the epoch summary
-        # ################################################################
-        print(f"\nEpoch {epoch}{epoch_suffix}", flush=True)
-        print(
-            f"[avg. train loss] {epoch_tr_loss} [avg. val loss] {epoch_val_loss}",
-            flush=True,
-        )
+        with torch.no_grad():
+            epoch_tr_loss = epoch_tr_loss / (ind + 1)
+            # ################################################################
+            # Loop through validation batches and compute the validation loss
+            # ################################################################
+            model.eval()
+            epoch_val_loss = 0
+            for ind, data in enumerate(val_loader):
+                data = data.to(cfg.device)
+                view1, view2 = transforms[0](data), transforms[0](data)
+                del data  # save space
+                for fn in transforms[1:]:
+                    view1, view2 = fn(view1), fn(view2)
+                output = model(view1, view2)
+                loss_item = cfg.loss_obj(output).item()
+                epoch_val_loss += loss_item
+            epoch_val_loss = epoch_val_loss / (ind + 1)
+            # ################################################################
+            # Compute and print the gradient statistics
+            # ################################################################
+            _, ave_grads, _ = analyze_gradients(
+                model.named_parameters(), allow_errors=False
+            )
+            grad_hist_per_epoch.append(ave_grads)
+            if np.sum(grad_hist_per_epoch) == 0:
+                vanishing_grads = True
+            else:
+                vanishing_grads = False
+            if int(np.sum(np.isnan(grad_hist_per_epoch))) == len(grad_hist_per_epoch):
+                exploding_grads = True
+            else:
+                exploding_grads = False
+            # ################################################################
+            # Print the epoch summary
+            # ################################################################
+            print(f"\nEpoch {epoch}{epoch_suffix}", flush=True)
+            print(
+                f"[avg. train loss] {epoch_tr_loss} [avg. val loss] {epoch_val_loss}",
+                flush=True,
+            )
 
-        # Checkpoint model, if necessary.
-        if epoch_val_loss < min_val_loss:
-            min_tr_loss = epoch_tr_loss
-            min_val_loss = epoch_val_loss
-            best_val_epoch = epoch
-            if cfg.model_save_path:
-                torch_save(model.state_dict(), cfg.model_save_path)
-                print("Best model saved according to training loss.", flush=True)
+            # Checkpoint model, if necessary.
+            if epoch_val_loss < min_val_loss:
+                min_tr_loss = epoch_tr_loss
+                min_val_loss = epoch_val_loss
+                best_val_epoch = epoch
+                if cfg.model_save_path:
+                    torch_save(model.state_dict(), cfg.model_save_path)
+                    print("Best model saved according to training loss.", flush=True)
 
-        print(
-            f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
-            flush=True,
-        )
-        # ################################################################
+            print(
+                f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
+                flush=True,
+            )
+            # ################################################################
     return min_tr_loss
+
