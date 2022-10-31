@@ -9,4 +9,4 @@ def bitmask(shape, mask_ratio, device="cpu"):
         shape (tuple): The shape of the output.
         mask_ratio (float): The approximate percentage of ones in the output.
     """
-    return torch.FloatTensor(*shape, device=device).uniform_() > (1 - mask_ratio)
+    return torch.rand(*shape, device=device) > (1 - mask_ratio)
