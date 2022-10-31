@@ -55,9 +55,8 @@ def test_constrast_loss():
         for x in train_smiles
     ]
     loader = DataLoader(train_X, batch_size=len(train_X))
-    loss_fn = cst.loss.contrast_loss()
+    loss_fn = cst.loss.contrast_loss(temperature)
     for data in loader:
-        data.temperature = torch.tensor(temperature)
         tens = torch.tensor(
             [
                 [[1.0, 2.0], [1.0, 2.0], [1.0, 1.5]],
