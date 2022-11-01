@@ -2,43 +2,68 @@ from torch_geometric.loader import DataLoader
 from polygnn import featurize as feat
 from polygnn import contrast as cst
 import torch
-from scipy.spatial.distance import cosine as cosine_distance
+from scipy import spatial
 import numpy as np
 
 
-def test_constrast_loss():
-    temperature = 1
+def test_contrast_loss():
+    temperature = 1.2
     train_smiles = ["[*]CC[*]", "[*]CC[*]", "[*]CC(C)[*]", "[*]CC(C)[*]"]  # 2N
     N = len(train_smiles) // 2
-    train_reps = [
-        [[1.0, 1.0, 1.0]],
-        [[2.0, 2.0, 1.5]],
-        [[5.0, -1.0, 0.0]],
-        [[10.0, -2.0, 0.5]],
-    ]
+    # Create the representations of four vectors: a,b,c,d. Where (a,b)
+    # and (c, d) are paired views of the same data point.
+    a = [1.0, 1.0]
+    b = [2.0, 1.0]
+    c = [5.0, 1.0]
+    d = [6.0, 1.0]
+    cos = lambda x: 1 - spatial.distance.cosine(x[0], x[1])  # cosine similarity.
     # ###################################################################################
     # Compute correct loss
     # ###################################################################################
-    S = np.zeros((len(train_reps), len(train_reps)))  # pairwise similarities, (2N, 2N)
-    for i in range(len(train_reps)):
-        for j in range(len(train_reps)):
-            S[i][j] = 1 - cosine_distance(train_reps[i], train_reps[j])
-    indicator = np.ones(S.shape)
-    np.fill_diagonal(indicator, 0)
-    L = -1 * (  # loss for each term, (2N, 2N)
-        np.log10(np.exp(S / temperature) / np.sum(indicator * np.exp(S / temperature)))
+    # Compute similarity of each term.
+    sim_ab = cos([a, b])
+    sim_ac = cos([a, c])
+    sim_ad = cos([a, d])
+    sim_ba = sim_ab
+    sim_bc = cos([b, c])
+    sim_bd = cos([b, d])
+    sim_ca = sim_ac
+    sim_cb = sim_bc
+    sim_cd = cos([c, d])
+    sim_da = sim_ad
+    sim_db = sim_bd
+    sim_dc = sim_cd
+    # The total loss is (1/(2*N)) * ((l_ab + l_ba) + (l_cd + l_dc)). Below,
+    # let's compute the individual loss terms that are part of this
+    # formula.
+    # We will start by computing the denominator (dnm) of each term.
+    dnm_ab = (
+        np.exp(sim_ab / temperature)
+        + np.exp(sim_ac / temperature)
+        + np.exp(sim_ad / temperature)
     )
-    assert len(set(np.diag(L).tolist())) == 1
-    assert L[0][1] < L[0][2]
-    assert L[0][1] < L[0][3]
-    assert L[2][3] < L[2][0]
-    assert L[2][3] < L[2][1]
-    # Total loss
-    correct_loss = (L[0][1] + L[1][0] + L[2][3] + L[3][2]) / (2 * N)
-    idx = [np.arange(0, N + 1, 2), np.arange(1, N + 2, 2)]
-    loss = L[idx].sum() / N
-    assert np.isclose(correct_loss, loss)
-    # ###################################################################################
+    dnm_ba = (
+        np.exp(sim_ba / temperature)
+        + np.exp(sim_bc / temperature)
+        + np.exp(sim_bd / temperature)
+    )
+    dnm_cd = (
+        np.exp(sim_ca / temperature)
+        + np.exp(sim_cb / temperature)
+        + np.exp(sim_cd / temperature)
+    )
+    dnm_dc = (
+        np.exp(sim_da / temperature)
+        + np.exp(sim_db / temperature)
+        + np.exp(sim_dc / temperature)
+    )
+    # Now we can compute each loss term.
+    l_ab = -np.log(np.exp(sim_ab / temperature) / dnm_ab)
+    l_ba = -np.log(np.exp(sim_ba / temperature) / dnm_ba)
+    l_cd = -np.log(np.exp(sim_cd / temperature) / dnm_cd)
+    l_dc = -np.log(np.exp(sim_dc / temperature) / dnm_dc)
+    # Compute the total loss.
+    correct_loss = (1 / (2 * N)) * (l_ab + l_ba + l_cd + l_dc)
     bond_config = feat.BondConfig(True, False, True)
     atom_config = feat.AtomConfig(
         True,
@@ -57,12 +82,7 @@ def test_constrast_loss():
     loader = DataLoader(train_X, batch_size=len(train_X))
     loss_fn = cst.loss.contrast_loss(temperature)
     for data in loader:
-        tens = torch.tensor(
-            [
-                [[1.0, 2.0], [1.0, 2.0], [1.0, 1.5]],
-                [[5.0, 10.0], [-1.0, -2.0], [0.0, 0.5]],
-            ]
-        )
+        tens = torch.tensor([a, b, c, d])
         data.y = tens
         result = loss_fn(data).item()
     assert np.isclose(result, correct_loss)
