@@ -28,9 +28,6 @@ class polyGNN(pt.std_module.StandardModule):
             node_size (int): The number of node features.
             edge_size (int): The number of edge features.
             selector_dim (int): The dimension of the selector vector.
-            freeze (bool): If True, the parameters of the mpnn layers
-                will be frozen. Otherwise, the mpnn layers will be
-                fine-tuned.
             hps (HpConfig): The hyperparameters to use for
                 all layers in the model.
             normalize_embedding (bool): If True, the node features
