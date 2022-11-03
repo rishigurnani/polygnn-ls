@@ -244,6 +244,11 @@ def test_polyGNN_pretraining(example_data):
         mpnn=pretrained,
         freeze=False,
     )
+    # Even during fine-tuning, the gradient of any parameter in the
+    # projector should not be computed.
+    assert (
+        downstream.mpnn.projection_head.layers[0].linear.weight.requires_grad == False
+    )
     # Re-instantiate the optimizer so that the model parameters of the
     # new fine-tunable model are optimized rather than the parameters
     # of the old frozen model.

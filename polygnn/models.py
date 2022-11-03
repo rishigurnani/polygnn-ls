@@ -119,8 +119,8 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
 
         # Set up the MPNN.
         self.mpnn = mpnn
-        if self.freeze:
-            for param in self.mpnn.parameters():
+        for name, param in self.mpnn.named_parameters():
+            if "projection" in name or self.freeze:
                 param.requires_grad = False
 
         # Set up the Estimator.
