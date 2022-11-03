@@ -28,9 +28,6 @@ class polyGNN(pt.std_module.StandardModule):
             node_size (int): The number of node features.
             edge_size (int): The number of edge features.
             selector_dim (int): The dimension of the selector vector.
-            freeze (bool): If True, the parameters of the mpnn layers
-                will be frozen. Otherwise, the mpnn layers will be
-                fine-tuned.
             hps (HpConfig): The hyperparameters to use for
                 all layers in the model.
             normalize_embedding (bool): If True, the node features
@@ -65,18 +62,23 @@ class polyGNN(pt.std_module.StandardModule):
         self.final = pt.layers.my_output(size_in=32, size_out=1)
 
     def forward(self, data):
-        data.x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
-        data.x = F.leaky_relu(data.x)
-        data.x = torch.cat((data.x, data.selector), dim=1)
-        data.x = self.estimator(data.x)
-        data.x = self.final(data.x)
-        data.x = torch.clip(  # prevent inf and -inf
-            data.x,
+        # Resist the temptation to over-write data.x in the subsequent
+        # steps. Instead, let's assign the output of each step to a
+        # new variable, called `result`. This will prevent some
+        # unintended consequences when we use this model inside a
+        # LinearEnsemble.
+        result = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
+        result = F.leaky_relu(result)
+        result = torch.cat((result, data.selector), dim=1)
+        result = self.estimator(result)
+        result = self.final(result)
+        result = torch.clip(  # prevent inf and -inf
+            result,
             min=-0.5,
             max=1.5,  # choose -0.5 and 1.5 since the output should be between 0 and 1
         )
-        data.x[torch.isnan(data.x)] = 1.5  # prevent nan
-        return data.x.view(data.num_graphs, 1)  # get the shape right
+        result[torch.isnan(result)] = 1.5  # prevent nan
+        return result.view(data.num_graphs, 1)  # get the shape right
 
 
 class polyGNN_fromPretrained(pt.std_module.StandardModule):
@@ -132,15 +134,20 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         self.final = pt.layers.my_output(size_in=32, size_out=1)
 
     def forward(self, data):
-        data.x = self.mpnn.represent(data)
-        data.x = F.leaky_relu(data.x)
-        data.x = torch.cat((data.x, data.selector), dim=1)
-        data.x = self.estimator(data.x)
-        data.x = self.final(data.x)
-        data.x = torch.clip(  # prevent inf and -inf
-            data.x,
+        # Resist the temptation to over-write data.x in the subsequent
+        # steps. Instead, let's assign the output of each step to a
+        # new variable, called `result`. This will prevent some
+        # unintended consequences when we use this model inside a
+        # LinearEnsemble.
+        result = self.mpnn.represent(data)
+        result = F.leaky_relu(result)
+        result = torch.cat((result, data.selector), dim=1)
+        result = self.estimator(result)
+        result = self.final(result)
+        result = torch.clip(  # prevent inf and -inf
+            result,
             min=-0.5,
             max=1.5,  # choose -0.5 and 1.5 since the output should be between 0 and 1
         )
-        data.x[torch.isnan(data.x)] = 1.5  # prevent nan
-        return data.x.view(data.num_graphs, 1)  # get the shape right
+        result[torch.isnan(result)] = 1.5  # prevent nan
+        return result.view(data.num_graphs, 1)  # get the shape right
