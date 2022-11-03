@@ -67,10 +67,6 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         )
 
     def represent(self, data):
-        """
-        The contents of this method are separated from `self.forward` so that
-        this block can be called in isolation during downstream tasks.
-        """
         x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
         x = F.leaky_relu(x)
         x = self.mlp_head(x)

@@ -87,8 +87,10 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         node_size,
         edge_size,
         selector_dim,
-        estimator_hps,
+        hps,
         mpnn,
+        mlp_head,
+        mlp_out,
         freeze,
         normalize_embedding=True,
         debug=False,
@@ -98,34 +100,42 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
             node_size (int): The number of node features.
             edge_size (int): The number of edge features.
             selector_dim (int): The dimension of the selector vector.
-            estimator_hps (HpConfig): The hyperparameters to use for
-                the Estimator.
-            mpnn (pt.std_module.StandardModule): The network with
-                the pre-trained message passing layers.
-            freeze (bool): If True, the parameters of the mpnn layers
-                will be frozen. Otherwise, the mpnn layers will be
-                fine-tuned.
+            hps (HpConfig): The hyperparameters to use for
+                all non-pretrained layers in the model.
+            mpnn (nn.Module): Message passing layers. The first part
+                of the representation.
+            mlp_head (nn.Module): Linear layers. The second part of the
+                representation.
+            mlp_out (nn.Module): Linear layer. The last part of the
+                representation.
+            freeze (bool): If True, mpnn, mlp_head, and mlp_out will be
+                frozen. Otherwise, they can be fine-tuned.
             normalize_embedding (bool): If True, the node features
                 will be aggregated using the mean. Otherwise, the
                 sum will be used for aggregation.
         """
-        super().__init__(estimator_hps)
+        super().__init__(hps)
+
         self.node_size = node_size
         self.edge_size = edge_size
         self.selector_dim = selector_dim
-        self.freeze = freeze
         self.normalize_embedding = normalize_embedding
         self.debug = debug
 
-        # Set up the MPNN.
+        # Set up the layers that control the representation.
         self.mpnn = mpnn
-        for name, param in self.mpnn.named_parameters():
-            if "projection" in name or self.freeze:
-                param.requires_grad = False
+        self.mlp_head = mlp_head
+        self.mlp_out = mlp_out
+        self.freeze = freeze
+        ## Freeze the parameters, if need be.
+        for layer in [self.mpnn, self.mlp_head, self.mlp_out]:
+            for name, param in layer.named_parameters():
+                if self.freeze:
+                    param.requires_grad = False
 
         # Set up the Estimator.
         self.estimator = pt.layers.Mlp(
-            input_dim=self.mpnn.mpnn.readout_dim + self.selector_dim,
+            input_dim=self.mpnn.readout_dim + self.selector_dim,
             output_dim=32,
             hps=self.hps,
             debug=False,
@@ -133,13 +143,20 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         ## Final layer of the Estimator.
         self.final = pt.layers.my_output(size_in=32, size_out=1)
 
+    def represent(self, data):
+        x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
+        x = F.leaky_relu(x)
+        x = self.mlp_head(x)
+        x = self.mlp_out(x)
+        return x
+
     def forward(self, data):
         # Resist the temptation to over-write data.x in the subsequent
         # steps. Instead, let's assign the output of each step to a
         # new variable, called `result`. This will prevent some
         # unintended consequences when we use this model inside a
         # LinearEnsemble.
-        result = self.mpnn.represent(data)
+        result = self.represent(data)
         result = F.leaky_relu(result)
         result = torch.cat((result, data.selector), dim=1)
         result = self.estimator(result)

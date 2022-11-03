@@ -177,14 +177,16 @@ def test_polyGNN_pretraining(example_data):
         node_size=atom_config.n_features,
         edge_size=bond_config.n_features,
         selector_dim=selector_dim,
-        estimator_hps=example_data["hps"],
-        mpnn=pretrained,
+        hps=example_data["hps"],
+        mpnn=pretrained.mpnn,
+        mlp_head=pretrained.mlp_head,
+        mlp_out=pretrained.mlp_out,
         freeze=True,
     )
     # There is a minus 1 below since the capacity of the mlp_head is
     # automatically decremented by 1 inside the
     # preTrainContrastivePolyGNN object.
-    assert downstream.mpnn.mlp_head.hps.capacity.get_value() == (7 - 1)
+    assert downstream.mlp_head.hps.capacity.get_value() == (7 - 1)
     # Create a trainConfig object for the downstream model.
     train_config = pt.train.trainConfig(
         loss_obj=pt.loss.sh_mse_loss(),
@@ -208,13 +210,13 @@ def test_polyGNN_pretraining(example_data):
     # ###############################################################
     # Test that freezing works
     # ###############################################################
-    pretrain_weight_before = downstream.mpnn.mlp_out.linear.weight.clone().detach()
+    pretrain_weight_before = downstream.mlp_out.linear.weight.clone().detach()
     downstream_weight_before = downstream.final.linear.weight.clone().detach()
     for data in loader:
         _, loss = pt.train.minibatch(data, train_config, downstream, selector_dim)
         loss.backward()
         optimizer.step()
-    pretrain_weight_after = downstream.mpnn.mlp_out.linear.weight.clone().detach()
+    pretrain_weight_after = downstream.mlp_out.linear.weight.clone().detach()
     downstream_weight_after = downstream.final.linear.weight.clone().detach()
     # The downstream weights should be changed after the weight update.
     assert not torch.equal(downstream_weight_before, downstream_weight_after)
@@ -240,26 +242,23 @@ def test_polyGNN_pretraining(example_data):
         node_size=atom_config.n_features,
         edge_size=bond_config.n_features,
         selector_dim=selector_dim,
-        estimator_hps=example_data["hps"],
-        mpnn=pretrained,
+        hps=example_data["hps"],
+        mpnn=pretrained.mpnn,
+        mlp_head=pretrained.mlp_head,
+        mlp_out=pretrained.mlp_out,
         freeze=False,
-    )
-    # Even during fine-tuning, the gradient of any parameter in the
-    # projector should not be computed.
-    assert (
-        downstream.mpnn.projection_head.layers[0].linear.weight.requires_grad == False
     )
     # Re-instantiate the optimizer so that the model parameters of the
     # new fine-tunable model are optimized rather than the parameters
     # of the old frozen model.
     optimizer = torch.optim.Adam(downstream.parameters(), lr=0.001)  # Adam optimization
-    pretrain_weight_before = downstream.mpnn.mlp_out.linear.weight.clone().detach()
+    pretrain_weight_before = downstream.mlp_out.linear.weight.clone().detach()
     downstream_weight_before = downstream.final.linear.weight.clone().detach()
     for data in loader:
         _, loss = pt.train.minibatch(data, train_config, downstream, selector_dim)
         loss.backward()
         optimizer.step()
-    pretrain_weight_after = downstream.mpnn.mlp_out.linear.weight.clone().detach()
+    pretrain_weight_after = downstream.mlp_out.linear.weight.clone().detach()
     downstream_weight_after = downstream.final.linear.weight.clone().detach()
     # Both the downstream and the pretrained weights should be changed
     # after the weight update.
