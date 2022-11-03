@@ -460,12 +460,13 @@ develop = false
 
 [package.dependencies]
 numpy = "^1.17"
+pandas = ">=1.1,<1.2"
 
 [package.source]
 type = "git"
 url = "https://github.com/rishigurnani/polygnn_trainer.git"
 reference = "main"
-resolved_reference = "bff067518116a458862e1a52fc3ed4ece47add7d"
+resolved_reference = "491f39c164e2c83ba0b3248ebcbdf7eaee6efbeb"
 
 [[package]]
 name = "prompt-toolkit"
