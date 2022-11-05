@@ -45,8 +45,8 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
 
         # Set up Mlp for representation.
         self.mlp_head = pt.layers.Mlp(
-            input_dim=self.hps.embedding_dim.get_value(),
-            output_dim=self.hps.embedding_dim.get_value(),
+            input_dim=self.mlp_hps.embedding_dim.get_value(),
+            output_dim=self.mlp_hps.embedding_dim.get_value(),
             hps=self.mlp_hps,
             debug=False,
         )
@@ -56,8 +56,8 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         )
         # Set up Mlp for projection.
         self.projection_head = pt.layers.Mlp(
-            input_dim=self.hps.embedding_dim.get_value(),
-            output_dim=self.hps.embedding_dim.get_value(),
+            input_dim=self.mlp_hps.embedding_dim.get_value(),
+            output_dim=self.mlp_hps.embedding_dim.get_value(),
             hps=self.mlp_hps,
             debug=False,
         )
