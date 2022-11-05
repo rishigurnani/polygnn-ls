@@ -1,9 +1,5 @@
-from torch_geometric.loader import DataLoader
 from polygnn import featurize as feat
 from polygnn import contrast as cst
-import torch
-from scipy.spatial.distance import cosine as cosine_distance
-import numpy as np
 
 """
 Basic unit test for removing node from graph
@@ -31,6 +27,6 @@ def test_node_deletion():
         for x in train_smiles
     ]
     for graph in train_X:
-        graph_with_deleted_node = cst.noise_deletion.delete_node(graph)
+        graph_with_deleted_node = cst.node_deletion.delete_node(graph)
         assert len(graph.x) - 1 == len(graph_with_deleted_node.x)
         assert len(graph.edge_weight) > len(graph_with_deleted_node.edge_weight)
