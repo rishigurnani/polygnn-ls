@@ -32,12 +32,20 @@ def test_node_deletion():
         feat.get_minimum_graph_tensor(x, bond_config, atom_config, "monocycle")
         for x in train_smiles
     ]
-    loader = DataLoader(train_X, batch_size=len(train_X))
-    for graph in loader:
-        graph_with_deleted_node = cst.noise_deletion.delete_node(graph)
-        assert len(graph.x) - 1 == len(graph_with_deleted_node.x)
-        assert len(graph.edge_weight) >= len(graph_with_deleted_node.edge_weight)
 
+    # loader = DataLoader(train_X, batch_size=1)
+    # for graph in loader:
+    #     graph_with_deleted_node = cst.node_deletion.delete_node(graph)
+    #     assert len(graph.x) - 1 == len(graph_with_deleted_node.x)
+    #     assert len(graph.edge_weight) >= len(graph_with_deleted_node.edge_weight)
+
+    loader = DataLoader(train_X, batch_size=np.random.randint(1, 1+len(train_X)))
+    for graphs in loader:
+        graphs_with_deleted_node = cst.node_deletion.delete_node(graphs).to_data_list()
+        for graph, graph_with_deleted_node in zip(graphs.to_data_list(), graphs_with_deleted_node):
+            assert len(graph.x) - 1 == len(graph_with_deleted_node.x)
+            assert len(graph.edge_weight) >= len(graph_with_deleted_node.edge_weight)
+    
         """
          TODO: Shubham, when you run this method, since the seed is fixed, 
          print out the x values and edge weights and assert those are equal a transformed graph
