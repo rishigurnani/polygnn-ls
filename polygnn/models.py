@@ -197,10 +197,10 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         result = torch.cat((result, data.selector), dim=1)
         result = self.estimator(result)
         result = self.final(result)
-        result = torch.clip(  # prevent inf and -inf
-            result,
-            min=-0.5,
-            max=1.5,  # choose -0.5 and 1.5 since the output should be between 0 and 1
-        )
-        result[torch.isnan(result)] = 1.5  # prevent nan
+        # result = torch.clip(  # prevent inf and -inf
+        #     result,
+        #     min=-0.5,
+        #     max=1.5,  # choose -0.5 and 1.5 since the output should be between 0 and 1
+        # )
+        # result[torch.isnan(result)] = 1.5  # prevent nan
         return result.view(data.num_graphs, 1)  # get the shape right
