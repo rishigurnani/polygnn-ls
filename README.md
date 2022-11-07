@@ -3,6 +3,8 @@
 This repository contains the code and environment used to train the machine learning models presented in a companion paper, *polyGNN: Multitask graph neural networks for polymer informatics*.
 
 ## Installation
+
+### Option 1: Using Poetry
 This repository is currently set up to run on 1) Mac OSX and 2) Linux/Windows machines with CUDA 10.2. Please raise a GitHub issue if you want to use this repo with a different configuration. Otherwise, please follow these steps for installation:
 
 1. Install [poetry](https://python-poetry.org/) on your machine.
@@ -16,6 +18,24 @@ This repository is currently set up to run on 1) Mac OSX and 2) Linux/Windows ma
 7. Run `poetry install`.
 8. If your machine is a Mac, run `poetry run poe torch-osx`. If not, run `poetry run poe torch-linux_win-cuda102`.
 9. If your machine is a Mac, run `poetry run poe pyg-osx`. If not, run `poetry run poe pyg-linux_win-cuda102`.
+
+
+### Option 2: Using Conda
+
+1. Create conda env and activate it:
+   
+    ```bash
+    conda create -n polygnn python=3.7.9
+    conda activate polygnn
+    ```
+
+2. Install dependencies:
+   
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+**Note**: Default setup is for CPU. Tu use with GPU, replace `cpu` with `cu{XXx}` in lines 65 and 66 of `requirements.txt`. For e.g., replace `cpu` with `cu102` to set up for CUDA 10.2 .
 
 ## Dependencies
 As can be seen in `pyproject.toml`, `polygnn` depends on several other packages, including [`polygnn_trainer`](https://github.com/rishigurnani/polygnn_trainer), 
