@@ -134,6 +134,3 @@ def test_noise_augmentation():
         assert data_aug.x[0, 69] >= 0
         assert np.array_equiv(data_aug.x[1:], data.x[1:])
         print("MASKING NOISE WORKS")
-
-
-test_noise_augmentation()
