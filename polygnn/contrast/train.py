@@ -192,7 +192,7 @@ def train(
                 best_val_epoch = epoch
                 if cfg.model_save_path:
                     torch_save(model.state_dict(), cfg.model_save_path)
-                    print("Best model saved according to training loss.", flush=True)
+                    print("Best model saved according to validation loss.", flush=True)
 
             print(
                 f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
