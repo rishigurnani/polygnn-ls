@@ -5,4 +5,5 @@ from . import (
     utils,
     train,
     node_deletion,
+    veil,
 )
