@@ -8,6 +8,7 @@ from torch import save as torch_save
 import numpy as np
 from torch_geometric.loader import DataLoader
 from collections import deque
+import time
 
 
 def amp_train(model, view1, view2, optimizer, tc):
@@ -47,6 +48,7 @@ def train(
     val_pts,
     cfg,
     transforms,
+    max_time=np.inf,
 ):
     """
     Train a model and save it to cfg.model_save_path. Models are
@@ -54,11 +56,14 @@ def train(
     the lowest yet.
 
     Keyword arguments:
-        model (polygnn_trainer.std_module.StandardModule): The model architecture.
+        model (polygnn_trainer.std_module.StandardModule): The model
+            architecture.
         train_pts (List[pyg.data.Data]): The training data.
         val_pts (List[pyg.data.Data]): The validation data.
         cfg (polygnn_trainer.train.trainConfig)
         transforms (List[callable]): The contrastive augmentations.
+        max_time (float): The training loop will break after any epoch
+            that exceeds `max_time` seconds.
     """
     # error handle inputs
     if cfg.model_save_path:
@@ -99,6 +104,7 @@ def train(
             pin_memory=True,
             num_workers=10,
         )
+    start = time.time()
     for epoch in range(cfg.epochs):
         # Let's stop training and not waste time if we have vanishing
         # gradients early in training. We won't
@@ -198,5 +204,13 @@ def train(
                 f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
                 flush=True,
             )
+            if max_time < np.inf:
+                end = time.time()
+                so_far =  end - start
+                time_remaining = max_time - so_far
+                print(f"Time so far/time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s", flush=True)
+                if time_remaining < 0:
+                    print(f"Breaking training loop after {epoch}/{cfg.epochs} epochs.", flush=True)
+                    break
             # ################################################################
     return min_tr_loss
