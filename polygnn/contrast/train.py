@@ -62,8 +62,8 @@ def train(
         val_pts (List[pyg.data.Data]): The validation data.
         cfg (polygnn_trainer.train.trainConfig)
         transforms (List[callable]): The contrastive augmentations.
-        max_time (float): The training loop will break after any epoch
-            that exceeds `max_time` seconds.
+        max_time (float): The training loop will break after the
+            first epoch that exceeds `max_time` seconds.
     """
     # error handle inputs
     if cfg.model_save_path:
