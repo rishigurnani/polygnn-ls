@@ -50,7 +50,7 @@ def train(
 ):
     """
     Train a model and save it to cfg.model_save_path. Models are
-    checkpointed each time the epoch-wise ***training*** loss is
+    checkpointed each time the epoch-wise ***validation*** loss is
     the lowest yet.
 
     Keyword arguments:
