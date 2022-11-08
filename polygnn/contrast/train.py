@@ -137,9 +137,9 @@ def train(
         for ind, data in enumerate(train_loader):
             data = data.to(cfg.device)
             with torch.no_grad():
-                view1, view2 = transforms[0](data.clone()), transforms[0](data.clone())
+                view1, view2 = data.clone(), data.clone()
                 del data  # save space
-                for fn in transforms[1:]:
+                for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
             optimizer.zero_grad(set_to_none=True)
             _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
