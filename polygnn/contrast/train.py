@@ -208,7 +208,7 @@ def train(
                 end = time.time()
                 so_far =  end - start
                 time_remaining = max_time - so_far
-                print(f"Time so far/time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s", flush=True)
+                print(f"Time so far / time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s", flush=True)
                 if time_remaining < 0:
                     print(f"Breaking training loop after {epoch}/{cfg.epochs} epochs.", flush=True)
                     break
