@@ -3,6 +3,31 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
 
+def _delete_node(graph, idx_to_remove):
+    # Create new node feature array
+    new_x = torch.cat(
+        [
+            graph.x[0:idx_to_remove],
+            graph.x[idx_to_remove + 1:],
+        ]
+    )
+
+    np_edge_index = graph.edge_index.cpu().numpy()
+    np_edge_weight = graph.edge_weight.cpu().numpy()
+
+    # Select edges to remove that contained that node
+    edges_to_keep = np.invert(
+        np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0)
+    )
+
+    np_edge_weight = np_edge_weight[edges_to_keep]
+    np_edge_index = np_edge_index[:, edges_to_keep]
+
+    # Decrement index counter for all node with index greater than one deleted
+    np_edge_index[np_edge_index > idx_to_remove] -= 1
+
+    return new_x, np_edge_index, np_edge_weight
+
 
 def delete_node(batch_graph_data):
     """
@@ -18,30 +43,10 @@ def delete_node(batch_graph_data):
         # Select random node to remove
         random_idx_to_remove = np.random.randint(0, graph_data.x.size(dim=0))
 
-        # Create new node feature array
-        new_x = torch.cat(
-            [
-                graph_data.x[0:random_idx_to_remove],
-                graph_data.x[random_idx_to_remove + 1 :],
-            ]
-        )
-
-        np_edge_index = graph_data.edge_index.cpu().numpy()
-        np_edge_weight = graph_data.edge_weight.cpu().numpy()
-
-        # Select edges to remove that contained that node
-        edges_to_keep = np.invert(
-            np.logical_or(np_edge_index[0] == 0, np_edge_index[1] == 0)
-        )
-
-        np_edge_weight = np_edge_weight[edges_to_keep]
-        np_edge_index = np_edge_index[:, edges_to_keep]
-
-        # Decrement index counter for all node with index greater than one deleted
-        np_edge_index[np_edge_index > random_idx_to_remove] -= 1
+        new_x, np_edge_index, np_edge_weight = _delete_node(graph_data, random_idx_to_remove)
 
         node_deleted_graph = Data(
-            x=torch.tensor(new_x, dtype=torch.float),
+            x=new_x,
             edge_index=torch.tensor(np_edge_index, dtype=torch.long),
             edge_weight=torch.tensor(np_edge_weight, dtype=torch.float),
         )
