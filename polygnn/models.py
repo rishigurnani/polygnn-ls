@@ -70,7 +70,6 @@ class polyGNN(pt.std_module.StandardModule):
         x[torch.isnan(x)] = 1.5  # prevent nan
         return x.view(data.num_graphs, 1)  # get the shape right
 
-
 class polyGNN_fromPretrained(pt.std_module.StandardModule):
     def __init__(
         self,
@@ -83,6 +82,8 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         debug=False,
     ):
         """
+        See `polyGNNp`.
+        
         Keyword arguments
             node_size (int): The number of node features.
             edge_size (int): The number of edge features.
@@ -100,6 +101,8 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         self.node_size = node_size
         self.edge_size = edge_size
         self.selector_dim = selector_dim
+        if pretrained_hps == None:
+            pretrained_hps = deepcopy(self.hps)
         self.pretrained_hps = pretrained_hps
         self.normalize_embedding = normalize_embedding
         self.debug = debug
@@ -194,3 +197,20 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         # )
         # result[torch.isnan(result)] = 1.5  # prevent nan
         return result.view(data.num_graphs, 1)  # get the shape right
+
+class polyGNNp(polyGNN_fromPretrained):
+    """
+    An improved version of polyGNN, named "polyGNN+" or "polyGNNp", where
+    the trailing "p" stands for "plus". "polyGNNp" contains the
+    following improvements:
+        1) The layer names match more closely to the nomenclature in
+            the companion paper.
+        2) This architecture does not contain clipping in the forward pass. 
+            So, the architecture generalizes better to single task models
+            where the target property value may not be between 0 and 1.
+        3) The architecture supports initialization of the message passing
+            layers from pretrained parameters via the `init_pretrained`
+            method.
+    """
+    def __init__(self, node_size, edge_size, selector_dim, hps, pretrained_hps, normalize_embedding=True, debug=False):
+        super().__init__(node_size, edge_size, selector_dim, hps, pretrained_hps, normalize_embedding, debug)
