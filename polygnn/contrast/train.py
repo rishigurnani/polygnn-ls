@@ -154,7 +154,7 @@ def train(
                 del data  # save space
                 for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
-            if (ind+1) % batches_per_step == 0 or (ind+1) == len(train_loader):
+            if (ind + 1) % batches_per_step == 0 or (ind + 1) == len(train_loader):
                 apply_grad = True
             else:
                 apply_grad = False
@@ -162,7 +162,7 @@ def train(
                 optimizer.zero_grad(set_to_none=True)
             _, loss_item = amp_train(model, view1, view2, optimizer, cfg, apply_grad)
             epoch_tr_loss += loss_item
-            
+
         with torch.no_grad():
             epoch_tr_loss = epoch_tr_loss / len(train_pts)
             # ################################################################
@@ -219,11 +219,17 @@ def train(
             )
             if max_time < np.inf:
                 end = time.time()
-                so_far =  end - start
+                so_far = end - start
                 time_remaining = max_time - so_far
-                print(f"Time so far / time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s", flush=True)
+                print(
+                    f"Time so far / time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s",
+                    flush=True,
+                )
                 if time_remaining < 0:
-                    print(f"Breaking training loop after {epoch}/{cfg.epochs} epochs.", flush=True)
+                    print(
+                        f"Breaking training loop after {epoch}/{cfg.epochs} epochs.",
+                        flush=True,
+                    )
                     break
             # ################################################################
     return min_tr_loss
