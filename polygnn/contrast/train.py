@@ -172,9 +172,9 @@ def train(
             epoch_val_loss = 0
             for ind, data in enumerate(val_loader):
                 data = data.to(cfg.device, non_blocking=True)
-                view1, view2 = transforms[0](data.clone()), transforms[0](data.clone())
+                view1, view2 = data.clone(), data.clone()
                 del data  # save space
-                for fn in transforms[1:]:
+                for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
                 output = model(view1, view2)
                 loss_item = cfg.loss_obj(output).item()
