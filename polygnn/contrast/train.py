@@ -205,17 +205,17 @@ def train(
             )
 
             # Checkpoint model, if necessary.
-            if epoch_val_loss < min_val_loss:
+            if getattr(cfg, "save_each_epoch", False):
+                save_path = f"epoch{epoch}__{cfg.model_save_path}"
+                torch_save(model.state_dict(), save_path)
+                print(f"Model saved to {save_path}.", flush=True)
+            elif epoch_val_loss < min_val_loss:
                 min_tr_loss = epoch_tr_loss
                 min_val_loss = epoch_val_loss
                 best_val_epoch = epoch
                 if cfg.model_save_path:
                     torch_save(model.state_dict(), cfg.model_save_path)
                     print("Best model saved according to validation loss.", flush=True)
-            if getattr(cfg, "save_each_epoch", False):
-                save_path = f"epoch{epoch}__{cfg.model_save_path}"
-                torch_save(model.state_dict(), save_path)
-                print(f"Model saved to {save_path}.", flush=True)
             print(
                 f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
                 flush=True,
