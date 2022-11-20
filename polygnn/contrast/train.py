@@ -53,6 +53,7 @@ def train(
     cfg,
     transforms,
     max_time=np.inf,
+    batches_per_step=1,
 ):
     """
     Train a model and save it to cfg.model_save_path. Models are
@@ -153,7 +154,7 @@ def train(
                 del data  # save space
                 for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
-            if (ind+1) % 4 == 0 or (ind+1) == len(train_loader):
+            if (ind+1) % batches_per_step == 0 or (ind+1) == len(train_loader):
                 apply_grad = True
             else:
                 apply_grad = False
