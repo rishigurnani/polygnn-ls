@@ -212,7 +212,10 @@ def train(
                 if cfg.model_save_path:
                     torch_save(model.state_dict(), cfg.model_save_path)
                     print("Best model saved according to validation loss.", flush=True)
-
+            if getattr(cfg, "save_each_epoch", False):
+                save_path = f"epoch{epoch}__{cfg.model_save_path}"
+                torch_save(model.state_dict(), save_path)
+                print(f"Model saved to {save_path}.", flush=True)
             print(
                 f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
                 flush=True,
