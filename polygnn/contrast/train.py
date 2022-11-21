@@ -11,31 +11,27 @@ from collections import deque
 import time
 
 
-def amp_train(model, view1, view2, optimizer, tc, apply_grad):
+def amp_train(model, view1, view2, optimizer, tc):
     """
     This function handles the parts of the per-epoch loop that torch's
     autocast methods can speed up. See https://pytorch.org/docs/1.9.1/notes/amp_examples.html
     """
     if tc.amp:
-        scaler = torch.cuda.amp.GradScaler()
-        with amp.autocast(enabled=True):
+        with amp.autocast(device_type=tc.device, enabled=True):
             output = model(view1, view2)
             loss = tc.loss_obj(output)
+            # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+            # Backward passes under autocast are not recommended.
+            # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+            amp.scaler.scale(loss).backward()
 
-        # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
-        # Backward passes under autocast are not r
-        # ecommended.
-        # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-        scaler.scale(loss).backward()
-
-        # scaler.step() first unscales the gradients of the optimizer's assigned params.
-        # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-        # otherwise, optimizer.step() is skipped.
-        if apply_grad:
-            scaler.step(optimizer)
+            # scaler.step() first unscales the gradients of the optimizer's assigned params.
+            # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+            # otherwise, optimizer.step() is skipped.
+            amp.scaler.step(optimizer)
 
             # Updates the scale for next iteration.
-            scaler.update()
+            amp.scaler.update()
     else:
         output = model(view1, view2)
         loss = tc.loss_obj(output)
@@ -53,13 +49,11 @@ def train(
     cfg,
     transforms,
     max_time=np.inf,
-    batches_per_step=1,
 ):
     """
     Train a model and save it to cfg.model_save_path. Models are
     checkpointed each time the epoch-wise ***validation*** loss is
     the lowest yet.
-
     Keyword arguments:
         model (polygnn_trainer.std_module.StandardModule): The model
             architecture.
@@ -70,23 +64,24 @@ def train(
         max_time (float): The training loop will break after the
             first epoch that exceeds `max_time` seconds.
     """
+    NUM_WORKERS = 0
     # error handle inputs
     if cfg.model_save_path:
         if not cfg.model_save_path.endswith(".pt"):
             raise ValueError(f"The model_save_path you passed in does not end in .pt")
     # create the epoch suffix for this submodel
     epoch_suffix = f"{cfg.epoch_suffix}, fold {cfg.fold_index}"
-    model.to(cfg.device, non_blocking=True)
+    model.to(cfg.device)
     optimizer = optim.Adam(
         model.parameters(), lr=cfg.hps.r_learn.value
     )  # Adam optimization
 
     val_loader = DataLoader(
         val_pts,
-        batch_size=cfg.hps.batch_size.value * 2,
+        batch_size=cfg.hps.batch_size.value,
         shuffle=True,
         pin_memory=True,
-        num_workers=10,
+        num_workers=NUM_WORKERS,
     )
 
     # intialize a few variables that get reset during the training loop
@@ -107,10 +102,8 @@ def train(
             batch_size=cfg.hps.batch_size.value,
             shuffle=True,
             pin_memory=True,
-            num_workers=10,
+            num_workers=NUM_WORKERS,
         )
-    # Enable benchmarking for optimal function execution
-    torch.backends.cudnn.benchmark = True
     start = time.time()
     for epoch in range(cfg.epochs):
         # Let's stop training and not waste time if we have vanishing
@@ -148,21 +141,15 @@ def train(
         model.train()
         epoch_tr_loss = 0
         for ind, data in enumerate(train_loader):
-            data = data.to(cfg.device, non_blocking=True)
+            data = data.to(cfg.device)
             with torch.no_grad():
                 view1, view2 = data.clone(), data.clone()
                 del data  # save space
                 for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
-            if (ind + 1) % batches_per_step == 0 or (ind + 1) == len(train_loader):
-                apply_grad = True
-            else:
-                apply_grad = False
-            if apply_grad == False:
-                optimizer.zero_grad(set_to_none=True)
-            _, loss_item = amp_train(model, view1, view2, optimizer, cfg, apply_grad)
+            optimizer.zero_grad(set_to_none=True)
+            _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
             epoch_tr_loss += loss_item
-
         with torch.no_grad():
             epoch_tr_loss = epoch_tr_loss / len(train_pts)
             # ################################################################
@@ -171,7 +158,7 @@ def train(
             model.eval()
             epoch_val_loss = 0
             for ind, data in enumerate(val_loader):
-                data = data.to(cfg.device, non_blocking=True)
+                data = data.to(cfg.device)
                 view1, view2 = data.clone(), data.clone()
                 del data  # save space
                 for fn in transforms:
@@ -203,6 +190,7 @@ def train(
                 f"[avg. train loss] {epoch_tr_loss} [avg. val loss] {epoch_val_loss}",
                 flush=True,
             )
+
             # Checkpoint model, if necessary.
             model_saved = False
             if getattr(cfg, "save_each_epoch", False):
@@ -217,6 +205,7 @@ def train(
                 if not model_saved and cfg.model_save_path:
                     torch_save(model.state_dict(), cfg.model_save_path)
                     print("Best model saved according to validation loss.", flush=True)
+
             print(
                 f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
                 flush=True,
@@ -225,15 +214,9 @@ def train(
                 end = time.time()
                 so_far = end - start
                 time_remaining = max_time - so_far
-                print(
-                    f"Time so far / time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s",
-                    flush=True,
-                )
+                print(f"Time so far / time remaining: {str(round(so_far, 3))}s / {str(round(time_remaining, 3))}s", flush=True)
                 if time_remaining < 0:
-                    print(
-                        f"Breaking training loop after {epoch}/{cfg.epochs} epochs.",
-                        flush=True,
-                    )
+                    print(f"Breaking training loop after {epoch}/{cfg.epochs} epochs.", flush=True)
                     break
             # ################################################################
     return min_tr_loss
