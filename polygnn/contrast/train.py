@@ -71,7 +71,7 @@ def train(
             raise ValueError(f"The model_save_path you passed in does not end in .pt")
     # create the epoch suffix for this submodel
     epoch_suffix = f"{cfg.epoch_suffix}, fold {cfg.fold_index}"
-    model.to(cfg.device)
+    model.to(cfg.device, non_blocking=True)
     optimizer = optim.Adam(
         model.parameters(), lr=cfg.hps.r_learn.value
     )  # Adam optimization
@@ -140,25 +140,27 @@ def train(
         # ################################################################
         model.train()
         epoch_tr_loss = 0
+        tr_samples = 0
         for ind, data in enumerate(train_loader):
-            data = data.to(cfg.device)
+            data = data.to(cfg.device, non_blocking=True)
             with torch.no_grad():
                 view1, view2 = data.clone(), data.clone()
                 del data  # save space
                 for fn in transforms:
                     view1, view2 = fn(view1), fn(view2)
             optimizer.zero_grad(set_to_none=True)
-            _, loss_item = amp_train(model, view1, view2, optimizer, cfg)
+            output, loss_item = amp_train(model, view1, view2, optimizer, cfg)
             epoch_tr_loss += loss_item
+            tr_samples += output.size()[0] // 2
         with torch.no_grad():
-            epoch_tr_loss = epoch_tr_loss / len(train_pts)
             # ################################################################
             # Loop through validation batches and compute the validation loss
             # ################################################################
             model.eval()
             epoch_val_loss = 0
+            val_samples = 0
             for ind, data in enumerate(val_loader):
-                data = data.to(cfg.device)
+                data = data.to(cfg.device, non_blocking=True)
                 view1, view2 = data.clone(), data.clone()
                 del data  # save space
                 for fn in transforms:
@@ -166,7 +168,7 @@ def train(
                 output = model(view1, view2)
                 loss_item = cfg.loss_obj(output).item()
                 epoch_val_loss += loss_item
-            epoch_val_loss = epoch_val_loss / len(val_pts)
+                val_samples += output.size()[0] // 2
             # ################################################################
             # Compute and print the gradient statistics
             # ################################################################
@@ -187,7 +189,7 @@ def train(
             # ################################################################
             print(f"\nEpoch {epoch}{epoch_suffix}", flush=True)
             print(
-                f"[avg. train loss] {epoch_tr_loss} [avg. val loss] {epoch_val_loss}",
+                f"[train loss] {epoch_tr_loss} [avg. train loss] {epoch_tr_loss / tr_samples} [val loss] {epoch_val_loss} [avg. val loss] {epoch_val_loss / val_samples}",
                 flush=True,
             )
 
@@ -207,7 +209,7 @@ def train(
                     print("Best model saved according to validation loss.", flush=True)
 
             print(
-                f"[best val epoch] {best_val_epoch} [best avg. train loss] {min_tr_loss} [best avg. val loss] {min_val_loss}",
+                f"[best val epoch] {best_val_epoch} [best train loss] {min_tr_loss} [best val loss] {min_val_loss}",
                 flush=True,
             )
             if max_time < np.inf:
@@ -220,3 +222,4 @@ def train(
                     break
             # ################################################################
     return min_tr_loss
+
