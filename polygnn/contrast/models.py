@@ -11,7 +11,7 @@ torch.manual_seed(2)
 np.random.seed(2)
 
 # ##########################
-# Pretraining PolyGNN with Contrastive Loss
+# Pretraining PolyGNN with SimCLR
 # #########################
 class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
     def __init__(
@@ -91,6 +91,86 @@ class preTrainContrastivePolyGNN(pt.std_module.StandardModule):
         x_aug = F.leaky_relu(x_aug)
         x_aug = self.project(x_aug)
 
+        # Interleave x:(N, D) and x_aug:(N, D) into a new tensor, data.y:(2*N, D)
+        n, d = x.size()
+        data.y = torch.stack((x, x_aug), dim=1).view(2 * n, d)
+        return data
+
+
+class GraphSimCLR_polyGNN(preTrainContrastivePolyGNN):
+    def __init__(
+        self,
+        node_size,
+        edge_size,
+        selector_dim,
+        hps,
+        normalize_embedding=True,
+        debug=False,
+    ):
+        """
+        Alias to preTrainContrastivePolyGNN.
+        """
+        super().__init__(
+            node_size, edge_size, selector_dim, hps, normalize_embedding, debug
+        )
+
+
+class NodeSimCLR_polyGNN(pt.std_module.StandardModule):
+    def __init__(
+        self,
+        node_size,
+        edge_size,
+        selector_dim,
+        hps,
+        normalize_embedding=True,
+        debug=False,
+    ):
+        super().__init__(hps)
+
+        self.node_size = node_size
+        self.edge_size = edge_size
+        self.normalize_embedding = normalize_embedding
+        self.debug = debug
+        self.mpnn = layers.MtConcat_PolyMpnn_p(
+            node_size,
+            edge_size,
+            selector_dim,
+            self.hps,
+            normalize_embedding,
+            debug,
+            self.hps.embedding_dim.get_value(),
+        )
+        # We need to decrement the capacity of the MLP layers by 1 since
+        # the output layer counts as 1 toward the capacity.
+        self.mlp_hps = deepcopy(self.hps)
+        self.mlp_hps.set_values({"capacity": self.mlp_hps.capacity.get_value() - 1})
+        # Set up Mlp for projection.
+        self.projection_head = pt.layers.Mlp(
+            input_dim=self.mlp_hps.embedding_dim.get_value(),
+            output_dim=self.mlp_hps.embedding_dim.get_value(),
+            hps=self.mlp_hps,
+            debug=False,
+        )
+        self.projection_out = pt.layers.my_output(
+            self.mlp_hps.embedding_dim.get_value(),
+            self.mlp_hps.embedding_dim.get_value(),
+        )
+
+    def represent(self, data):
+        x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
+        return x
+
+    def project(self, x):
+        x = self.projection_head(x)
+        x = self.projection_out(x)
+        return x
+
+    def forward(self, data, data_augmented):
+        """
+        This method can be called during pre-training.
+        """
+        x, x_aug = self.represent(data), self.represent(data_augmented)
+        x, x_aug = self.project(x), self.project(x_aug)
         # Interleave x:(N, D) and x_aug:(N, D) into a new tensor, data.y:(2*N, D)
         n, d = x.size()
         data.y = torch.stack((x, x_aug), dim=1).view(2 * n, d)

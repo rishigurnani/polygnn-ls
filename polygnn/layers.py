@@ -191,9 +191,60 @@ class MtConcat_PolyMpnn(pt.std_module.StandardModule):
             x + x_clone
         )  # combine initial feature vector with updated feature vector and map. Skip connection.
 
-        # readout
+        # aggregation
         if self.normalize_embedding:
             x = scatter_mean(x, batch, dim=0)
         else:
             x = scatter_sum(x, batch, dim=0)
+        return x
+
+
+class MtConcat_PolyMpnn_p(MtConcat_PolyMpnn):
+    """
+    An improved version of `MtConcat_PolyMpnn`. The trailing "p" stands for
+    "plus". This class contains the following changes relative to
+    `MtConcat_PolyMpnn`.
+        1) Aggregation of atom embeddings into one graph embedding is not
+            done inside the forward method of this class.
+    """
+
+    def __init__(
+        self,
+        node_size,
+        edge_size,
+        selector_dim,
+        hps,
+        normalize_embedding,
+        debug,
+        readout_dim=128,
+    ):
+        super().__init__(
+            node_size,
+            edge_size,
+            selector_dim,
+            hps,
+            normalize_embedding,
+            debug,
+            readout_dim,
+        )
+
+    def forward(self, x, edge_index, edge_weight, batch):
+        if self.debug:
+            print("#####")
+        x_clone = x.clone().detach()
+
+        # message passes
+        for i, layer in enumerate(self.dc_layers):
+            if i is 0 or i is 1:
+                x = layer(x, edge_index, edge_weight, batch)
+            else:
+                skip_x = last_last_x + x  # skip connection
+                x = layer(skip_x, edge_index, edge_weight, batch)
+            if i > 0:
+                last_last_x = last_x
+            last_x = x
+
+        x = self.R(
+            x + x_clone
+        )  # combine initial feature vector with updated feature vector and map. Skip connection.
         return x

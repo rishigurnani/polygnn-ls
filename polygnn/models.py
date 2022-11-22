@@ -5,6 +5,7 @@ import numpy as np
 import polygnn_trainer as pt
 from copy import deepcopy
 import polygnn.layers as layers
+from torch_scatter import scatter_sum, scatter_mean
 
 random.seed(2)
 torch.manual_seed(2)
@@ -70,6 +71,7 @@ class polyGNN(pt.std_module.StandardModule):
         x[torch.isnan(x)] = 1.5  # prevent nan
         return x.view(data.num_graphs, 1)  # get the shape right
 
+
 class polyGNN_fromPretrained(pt.std_module.StandardModule):
     def __init__(
         self,
@@ -83,7 +85,7 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
     ):
         """
         See `polyGNNp`.
-        
+
         Keyword arguments
             node_size (int): The number of node features.
             edge_size (int): The number of edge features.
@@ -198,19 +200,103 @@ class polyGNN_fromPretrained(pt.std_module.StandardModule):
         # result[torch.isnan(result)] = 1.5  # prevent nan
         return result.view(data.num_graphs, 1)  # get the shape right
 
+
 class polyGNNp(polyGNN_fromPretrained):
     """
     An improved version of polyGNN, named "polyGNN+" or "polyGNNp", where
-    the trailing "p" stands for "plus". "polyGNNp" contains the
-    following improvements:
+    the trailing "p" stands for "plus". This class contains the
+    following changes relative to the `polyGNN` class:
         1) The layer names match more closely to the nomenclature in
             the companion paper.
-        2) This architecture does not contain clipping in the forward pass. 
+        2) This architecture does not contain clipping in the forward pass.
             So, the architecture generalizes better to single task models
             where the target property value may not be between 0 and 1.
         3) The architecture supports initialization of the message passing
             layers from pretrained parameters via the `init_pretrained`
             method.
     """
-    def __init__(self, node_size, edge_size, selector_dim, hps, pretrained_hps, normalize_embedding=True, debug=False):
-        super().__init__(node_size, edge_size, selector_dim, hps, pretrained_hps, normalize_embedding, debug)
+
+    def __init__(
+        self,
+        node_size,
+        edge_size,
+        selector_dim,
+        hps,
+        pretrained_hps,
+        normalize_embedding=True,
+        debug=False,
+    ):
+        super().__init__(
+            node_size,
+            edge_size,
+            selector_dim,
+            hps,
+            pretrained_hps,
+            normalize_embedding,
+            debug,
+        )
+
+
+class polyGNNp2(polyGNNp):
+    def __init__(
+        self,
+        node_size,
+        edge_size,
+        selector_dim,
+        hps,
+        pretrained_hps,
+        normalize_embedding=True,
+        debug=False,
+    ):
+        """
+        An improved version of polyGNN, named "polyGNN++" or "polyGNNp2", where
+        the "p2" stands for "plus plus". This class contains the
+        following changes relative to the `polyGNNp` class:
+            1) Aggregation of atom embeddings into one graph embedding is done
+                inside the forward pass of this class rather than inside the forward
+                pass of `self.mpnn`. This is useful in case we want to do
+                self-supervision at the atomic level.
+
+            Keyword arguments
+                node_size (int): The number of node features.
+                edge_size (int): The number of edge features.
+                selector_dim (int): The dimension of the selector vector.
+                hps (HpConfig): The hyperparameters to use for
+                    all non-pretrained layers in the model.
+                pretrained_hps (HpConfig): The hyperparameters to use for
+                    all pretrained layers in the model.
+                normalize_embedding (bool): If True, the node features
+                    will be aggregated using the mean. Otherwise, the
+                    sum will be used for aggregation.
+        """
+        super().__init__(
+            node_size,
+            edge_size,
+            selector_dim,
+            hps,
+            pretrained_hps,
+            normalize_embedding,
+            debug,
+        )
+        # Over-write the `self.mpnn` defined by the parent class.
+        self.mpnn = layers.MtConcat_PolyMpnn_p(
+            self.node_size,
+            self.edge_size,
+            self.selector_dim,
+            self.pretrained_hps,
+            self.normalize_embedding,
+            self.debug,
+            self.pretrained_hps.embedding_dim.get_value(),
+        )
+
+    def represent(self, data):
+        x = self.mpnn(data.x, data.edge_index, data.edge_weight, data.batch)
+        # aggregation
+        if self.normalize_embedding:
+            x = scatter_mean(x, data.batch, dim=0)
+        else:
+            x = scatter_sum(x, data.batch, dim=0)
+        x = F.leaky_relu(x)
+        x = self.mlp_head(x)
+        x = self.mlp_out(x)
+        return x
